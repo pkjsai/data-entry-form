@@ -55,51 +55,49 @@
             };
 
             const handleSubmit = async (e) => {
-                e.preventDefault();
+    e.preventDefault();
 
-                if (!formData.fullName || !formData.email) {
-                    showToast('⚠️ Please fill in all required fields.');
-                    return;
-                }
+    if (!formData.fullName || !formData.email) {
+        showToast('⚠️ Please fill in all required fields.');
+        return;
+    }
 
-                setIsSyncing(true);
-                const timestamp = new Date().toLocaleString();
-                const newRecord = { id: Date.now(), timestamp, ...formData };
+    setIsSyncing(true);
+    const timestamp = new Date().toLocaleString();
+    const newRecord = { id: Date.now(), timestamp, ...formData };
 
-                try {
-                    // Form URL Encoded parameters for reliable transfer to Google Apps Script
-                    const params = new URLSearchParams();
-                    params.append('fullName', formData.fullName);
-                    params.append('email', formData.email);
-                    params.append('role', formData.role);
-                    params.append('department', formData.department);
-                    params.append('status', formData.status);
-                    params.append('notes', formData.notes);
+    try {
+        // Send as raw text JSON payload to avoid CORS preflight issues
+        await fetch(API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({
+                fullName: formData.fullName,
+                email: formData.email,
+                role: formData.role,
+                department: formData.department,
+                status: formData.status,
+                notes: formData.notes
+            })
+        });
 
-                    await fetch(API_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: params.toString()
-                    });
-
-                    setRecords(prev => [newRecord, ...prev]);
-                    showToast('✅ Synced to Google Sheet successfully!');
-                    setFormData({
-                        fullName: '',
-                        email: '',
-                        role: 'User',
-                        department: 'Engineering',
-                        status: 'Active',
-                        notes: ''
-                    });
-                } catch (err) {
-                    showToast('❌ Error submitting data.');
-                } finally {
-                    setIsSyncing(false);
-                }
-            };
-
+        setRecords(prev => [newRecord, ...prev]);
+        showToast('✅ Synced to Google Sheet successfully!');
+        setFormData({
+            fullName: '',
+            email: '',
+            role: 'User',
+            department: 'Engineering',
+            status: 'Active',
+            notes: ''
+        });
+    } catch (err) {
+        showToast('❌ Error submitting data.');
+    } finally {
+        setIsSyncing(false);
+    }
+};
             const exportToExcel = () => {
                 if (records.length === 0) {
                     showToast('⚠️ No records to export!');

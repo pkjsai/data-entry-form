@@ -33,15 +33,17 @@
             const [isSyncing, setIsSyncing] = useState(false);
             const [toast, setToast] = useState('');
 
+            // Load records specific to this user/device
             useEffect(() => {
-                const saved = localStorage.getItem('form_records');
+                const saved = localStorage.getItem('user_private_records');
                 if (saved) {
                     try { setRecords(JSON.parse(saved)); } catch (e) {}
                 }
             }, []);
 
+            // Save records to this user's local storage only
             useEffect(() => {
-                localStorage.setItem('form_records', JSON.stringify(records));
+                localStorage.setItem('user_private_records', JSON.stringify(records));
             }, [records]);
 
             const showToast = (msg) => {
@@ -55,49 +57,60 @@
             };
 
             const handleSubmit = async (e) => {
-    e.preventDefault();
+                e.preventDefault();
 
-    if (!formData.fullName || !formData.email) {
-        showToast('⚠️ Please fill in all required fields.');
-        return;
-    }
+                if (!formData.fullName || !formData.email) {
+                    showToast('⚠️ Please fill in all required fields.');
+                    return;
+                }
 
-    setIsSyncing(true);
-    const timestamp = new Date().toLocaleString();
-    const newRecord = { id: Date.now(), timestamp, ...formData };
+                setIsSyncing(true);
+                const timestamp = new Date().toLocaleString();
+                const newRecord = { id: Date.now(), timestamp, ...formData };
 
-    try {
-        // Send as raw text JSON payload to avoid CORS preflight issues
-        await fetch(API_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({
-                fullName: formData.fullName,
-                email: formData.email,
-                role: formData.role,
-                department: formData.department,
-                status: formData.status,
-                notes: formData.notes
-            })
-        });
+                try {
+                    await fetch(API_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({
+                            fullName: formData.fullName,
+                            email: formData.email,
+                            role: formData.role,
+                            department: formData.department,
+                            status: formData.status,
+                            notes: formData.notes
+                        })
+                    });
 
-        setRecords(prev => [newRecord, ...prev]);
-        showToast('✅ Synced to Google Sheet successfully!');
-        setFormData({
-            fullName: '',
-            email: '',
-            role: 'User',
-            department: 'Engineering',
-            status: 'Active',
-            notes: ''
-        });
-    } catch (err) {
-        showToast('❌ Error submitting data.');
-    } finally {
-        setIsSyncing(false);
-    }
-};            const exportToExcel = () => {
+                    // Update user's local record log only
+                    setRecords(prev => [newRecord, ...prev]);
+                    showToast('✅ Synced to Google Sheet successfully!');
+                    setFormData({
+                        fullName: '',
+                        email: '',
+                        role: 'User',
+                        department: 'Engineering',
+                        status: 'Active',
+                        notes: ''
+                    });
+                } catch (err) {
+                    showToast('❌ Error submitting data.');
+                } finally {
+                    setIsSyncing(false);
+                }
+            };
+
+            // Clear log only for this user/device (does not delete rows from Google Sheet)
+            const clearMyRecords = () => {
+                if (window.confirm('Are you sure you want to clear your local history log? (Saved entries in Google Sheet remain safe).')) {
+                    setRecords([]);
+                    localStorage.removeItem('user_private_records');
+                    showToast('🧹 Your local log has been cleared!');
+                }
+            };
+
+            const exportToExcel = () => {
                 if (records.length === 0) {
                     showToast('⚠️ No records to export!');
                     return;
@@ -105,8 +118,8 @@
                 const exportData = records.map(({ id, ...rest }) => rest);
                 const worksheet = XLSX.utils.json_to_sheet(exportData);
                 const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, "Form Data");
-                XLSX.writeFile(workbook, "FormData_Export.xlsx");
+                XLSX.utils.book_append_sheet(workbook, worksheet, "My Submissions");
+                XLSX.writeFile(workbook, "My_Submissions_Export.xlsx");
                 showToast('📊 Exported to Excel successfully!');
             };
 
@@ -116,13 +129,24 @@
                         <h1 className="text-2xl font-bold text-cyan-400">
                             Data Entry & Google Sheet Sync
                         </h1>
-                        <button 
-                            type="button"
-                            onClick={exportToExcel}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold px-4 py-2 rounded transition-all text-white"
-                        >
-                            📊 Export Excel
-                        </button>
+                        <div className="flex space-x-2">
+                            {records.length > 0 && (
+                                <button 
+                                    type="button"
+                                    onClick={clearMyRecords}
+                                    className="bg-rose-600 hover:bg-rose-500 text-xs font-semibold px-3 py-2 rounded transition-all text-white"
+                                >
+                                    🗑️ Clear My History
+                                </button>
+                            )}
+                            <button 
+                                type="button"
+                                onClick={exportToExcel}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold px-4 py-2 rounded transition-all text-white"
+                            >
+                                📊 Export Excel
+                            </button>
+                        </div>
                     </div>
 
                     {toast && (
@@ -201,7 +225,10 @@
 
                     {records.length > 0 && (
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
-                            <h2 className="text-lg font-bold text-slate-200 mb-4">Submitted Records Log</h2>
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-lg font-bold text-slate-200">My Submitted Records</h2>
+                                <span className="text-xs text-slate-400">Private to your browser</span>
+                            </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm text-left text-slate-300">
                                     <thead className="text-xs uppercase bg-slate-900 text-slate-400">

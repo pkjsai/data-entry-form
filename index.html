@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Entry Form</title>
+    <title>Data Entry Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -16,11 +16,18 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // PASTE YOUR WEB APP EXEC URL HERE
         const API_URL = "https://script.google.com/macros/s/AKfycbxz_dQhvMKndcwCnZChY8etloherH7pneuSjzN7zniwMvjFLAfgEHfTqfRxmrM5i40b3g/exec";
 
         function App() {
+            // Auth States
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [credentials, setCredentials] = useState({ userId: '', password: '' });
+            const [isAuthenticating, setIsAuthenticating] = useState(false);
+            const [authError, setAuthError] = useState('');
+
+            // App Form States
             const [formData, setFormData] = useState({
+                empId: '',
                 fullName: '',
                 email: '',
                 role: 'User',
@@ -29,12 +36,36 @@
                 notes: ''
             });
 
+            const [empList, setEmpList] = useState([]);
             const [records, setRecords] = useState([]);
             const [isSyncing, setIsSyncing] = useState(false);
             const [toast, setToast] = useState('');
             const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-            // Load records specific to this user/device
+            // Maintain session state on refresh
+            useEffect(() => {
+                const sessionUser = sessionStorage.getItem('portal_user_id');
+                if (sessionUser) {
+                    setIsAuthenticated(true);
+                }
+            }, []);
+
+            // Fetch EMP ID dropdown options from employees.json in GitHub
+            useEffect(() => {
+                if (isAuthenticated) {
+                    fetch('employees.json')
+                        .then(res => res.json())
+                        .then(data => {
+                            setEmpList(data);
+                            if (data.length > 0) {
+                                setFormData(prev => ({ ...prev, empId: data[0].id }));
+                            }
+                        })
+                        .catch(err => console.error("Error loading employees list:", err));
+                }
+            }, [isAuthenticated]);
+
+            // Local browser storage for record isolation
             useEffect(() => {
                 const saved = localStorage.getItem('user_private_records');
                 if (saved) {
@@ -42,7 +73,6 @@
                 }
             }, []);
 
-            // Save records to this user's local storage only
             useEffect(() => {
                 localStorage.setItem('user_private_records', JSON.stringify(records));
             }, [records]);
@@ -50,6 +80,44 @@
             const showToast = (msg) => {
                 setToast(msg);
                 setTimeout(() => setToast(''), 4000);
+            };
+
+            // Login Logic - Validates against Google Sheet "Users" tab
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setIsAuthenticating(true);
+                setAuthError('');
+
+                try {
+                    const res = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({
+                            action: 'login',
+                            userId: credentials.userId,
+                            password: credentials.password
+                        })
+                    });
+
+                    const data = await res.json();
+
+                    if (data.status === 'success') {
+                        setIsAuthenticated(true);
+                        sessionStorage.setItem('portal_user_id', credentials.userId);
+                    } else {
+                        setAuthError('❌ Invalid User ID or Password.');
+                    }
+                } catch (err) {
+                    setAuthError('❌ Login verification failed. Please try again.');
+                } finally {
+                    setIsAuthenticating(false);
+                }
+            };
+
+            const handleLogout = () => {
+                sessionStorage.removeItem('portal_user_id');
+                setIsAuthenticated(false);
+                setCredentials({ userId: '', password: '' });
             };
 
             const handleChange = (e) => {
@@ -60,7 +128,7 @@
             const handleSubmit = async (e) => {
                 e.preventDefault();
 
-                if (!formData.fullName || !formData.email) {
+                if (!formData.fullName || !formData.email || !formData.empId) {
                     showToast('⚠️ Please fill in all required fields.');
                     return;
                 }
@@ -75,6 +143,8 @@
                         mode: 'no-cors',
                         headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify({
+                            action: 'submit',
+                            empId: formData.empId,
                             fullName: formData.fullName,
                             email: formData.email,
                             role: formData.role,
@@ -87,6 +157,7 @@
                     setRecords(prev => [newRecord, ...prev]);
                     showToast('✅ Synced to Google Sheet successfully!');
                     setFormData({
+                        empId: empList.length > 0 ? empList[0].id : '',
                         fullName: '',
                         email: '',
                         role: 'User',
@@ -101,7 +172,6 @@
                 }
             };
 
-            // Custom Modal Clear Action
             const confirmClearRecords = () => {
                 setRecords([]);
                 localStorage.removeItem('user_private_records');
@@ -122,9 +192,69 @@
                 showToast('📊 Exported to Excel successfully!');
             };
 
+            // RENDER LOGIN SCREEN IF NOT AUTHENTICATED
+            if (!isAuthenticated) {
+                return (
+                    <div className="flex items-center justify-center min-h-screen p-4">
+                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+                            <div className="flex flex-col items-center mb-6">
+                                <img 
+                                    src="logo.png" 
+                                    alt="Logo" 
+                                    className="h-12 w-auto mb-3 object-contain rounded bg-white p-1 shadow"
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                                <h2 className="text-xl font-bold text-cyan-400">Portal Access Required</h2>
+                                <p className="text-xs text-slate-400 mt-1">Sign in with your credentials</p>
+                            </div>
+
+                            {authError && (
+                                <div className="mb-4 bg-rose-900/40 border border-rose-500/50 text-rose-300 text-xs p-3 rounded text-center">
+                                    {authError}
+                                </div>
+                            )}
+
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <div className="flex items-center space-x-3">
+                                    <label className="w-24 text-sm font-semibold text-slate-300">User ID:</label>
+                                    <input 
+                                        type="text" 
+                                        required
+                                        value={credentials.userId}
+                                        onChange={(e) => setCredentials(p => ({ ...p, userId: e.target.value }))}
+                                        className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                        placeholder="Enter User ID"
+                                    />
+                                </div>
+
+                                <div className="flex items-center space-x-3">
+                                    <label className="w-24 text-sm font-semibold text-slate-300">Password:</label>
+                                    <input 
+                                        type="password" 
+                                        required
+                                        value={credentials.password}
+                                        onChange={(e) => setCredentials(p => ({ ...p, password: e.target.value }))}
+                                        className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                        placeholder="Enter Password"
+                                    />
+                                </div>
+
+                                <button 
+                                    type="submit"
+                                    disabled={isAuthenticating}
+                                    className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 rounded transition-all shadow-lg disabled:opacity-50 text-sm mt-4"
+                                >
+                                    {isAuthenticating ? 'Verifying Credentials...' : 'Sign In'}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            // RENDER MAIN APPLICATION FORM AFTER AUTHENTICATION
             return (
                 <div className="max-w-4xl mx-auto p-6">
-                    {/* Header Section with Right-Aligned Logo */}
                     <div className="flex justify-between items-center mb-6">
                         <h1 className="text-2xl font-bold text-cyan-400">
                             Data Entry & Google Sheet Sync
@@ -146,8 +276,13 @@
                             >
                                 📊 Export Excel
                             </button>
-                            
-                            {/* Logo Image */}
+                            <button 
+                                type="button"
+                                onClick={handleLogout}
+                                className="bg-slate-700 hover:bg-slate-600 text-xs font-semibold px-3 py-2 rounded transition-all text-slate-200 border border-slate-600 shadow"
+                            >
+                                🚪 Logout
+                            </button>
                             <img 
                                 src="logo.png" 
                                 alt="Logo" 
@@ -158,12 +293,11 @@
                     </div>
 
                     {toast && (
-                        <div className="fixed top-5 right-5 bg-slate-800 border border-cyan-500 text-slate-100 px-4 py-3 rounded shadow-2xl z-50 animate-bounce">
+                        <div className="fixed top-5 right-5 bg-slate-800 border border-cyan-500 text-slate-100 px-4 py-3 rounded shadow-2xl z-50 animate-bounce text-sm">
                             {toast}
                         </div>
                     )}
 
-                    {/* Custom Confirmation Modal */}
                     {showConfirmModal && (
                         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                             <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full shadow-2xl space-y-4">
@@ -175,9 +309,7 @@
                                     </div>
                                     <h3 className="text-lg font-bold text-white">Clear Local History?</h3>
                                 </div>
-                                <p className="text-sm text-slate-300">
-                                    This will clear your local view.
-                                </p>
+                                <p className="text-sm text-slate-300">This will clear your local view.</p>
                                 <div className="flex justify-end space-x-3 pt-2">
                                     <button 
                                         type="button"
@@ -200,7 +332,27 @@
 
                     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl mb-8">
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm text-slate-300 mb-1">EMP ID *</label>
+                                    <select 
+                                        name="empId" 
+                                        value={formData.empId} 
+                                        onChange={handleChange} 
+                                        required
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500"
+                                    >
+                                        {empList.length === 0 ? (
+                                            <option value="">Loading EMP IDs...</option>
+                                        ) : (
+                                            empList.map((emp) => (
+                                                <option key={emp.id} value={emp.id}>
+                                                    {emp.name || emp.id}
+                                                </option>
+                                            ))
+                                        )}
+                                    </select>
+                                </div>
                                 <div>
                                     <label className="block text-sm text-slate-300 mb-1">Full Name *</label>
                                     <input 
@@ -277,6 +429,7 @@
                                     <thead className="text-xs uppercase bg-slate-900 text-slate-400">
                                         <tr>
                                             <th className="px-4 py-3">Timestamp</th>
+                                            <th className="px-4 py-3">EMP ID</th>
                                             <th className="px-4 py-3">Name</th>
                                             <th className="px-4 py-3">Email</th>
                                             <th className="px-4 py-3">Role</th>
@@ -288,6 +441,7 @@
                                         {records.map((rec) => (
                                             <tr key={rec.id} className="hover:bg-slate-750">
                                                 <td className="px-4 py-3 text-xs text-slate-400">{rec.timestamp}</td>
+                                                <td className="px-4 py-3 font-semibold text-cyan-400">{rec.empId}</td>
                                                 <td className="px-4 py-3 font-medium text-white">{rec.fullName}</td>
                                                 <td className="px-4 py-3">{rec.email}</td>
                                                 <td className="px-4 py-3">{rec.role}</td>

@@ -9,6 +9,8 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- PDF Generation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
     <div id="root"></div>
@@ -45,6 +47,7 @@
             const [isFetchingEmp, setIsFetchingEmp] = useState(false);
             const [toast, setToast] = useState('');
             const [showConfirmModal, setShowConfirmModal] = useState(false);
+            const [pdfData, setPdfData] = useState(null); // Selected record for PDF download
 
             // Maintain session state on refresh
             useEffect(() => {
@@ -71,7 +74,7 @@
                 setTimeout(() => setToast(''), 4000);
             };
 
-            // Login Logic - Validates against Google Sheet "Users" tab
+            // Login Logic
             const handleLogin = async (e) => {
                 e.preventDefault();
                 setIsAuthenticating(true);
@@ -116,7 +119,7 @@
 
             // Enforce numeric only input for EMP ID
             const handleEmpIdChange = (e) => {
-                const numericValue = e.target.value.replace(/\D/g, ''); // strip non-numeric
+                const numericValue = e.target.value.replace(/\D/g, '');
                 setFormData(prev => ({ ...prev, empId: numericValue }));
             };
 
@@ -186,6 +189,10 @@
 
                     setRecords(prev => [newRecord, ...prev]);
                     showToast('✅ Synced to Google Sheet successfully!');
+                    
+                    // Show PDF download preview modal
+                    setPdfData(newRecord);
+
                     setFormData({
                         empId: '',
                         fullName: '',
@@ -204,6 +211,21 @@
                 } finally {
                     setIsSyncing(false);
                 }
+            };
+
+            // Download Generated PDF Handler
+            const downloadPDF = () => {
+                if (!pdfData) return;
+                const element = document.getElementById('pdf-content');
+                const opt = {
+                    margin:       0.4,
+                    filename:     `Claim_Form_${pdfData.empId}_${pdfData.id}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2 },
+                    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                };
+
+                html2pdf().set(opt).from(element).save();
             };
 
             const confirmClearRecords = () => {
@@ -332,6 +354,7 @@
                         </div>
                     )}
 
+                    {/* CONFIRM CLEAR MODAL */}
                     {showConfirmModal && (
                         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                             <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full shadow-2xl space-y-4">
@@ -364,6 +387,90 @@
                         </div>
                     )}
 
+                    {/* PRINTABLE PDF MODAL */}
+                    {pdfData && (
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+                            <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 shadow-2xl">
+                                <div className="flex justify-between items-center border-b border-slate-700 pb-3">
+                                    <h3 className="text-lg font-bold text-cyan-400">Printable Submission Receipt</h3>
+                                    <div className="flex space-x-2">
+                                        <button 
+                                            type="button"
+                                            onClick={downloadPDF}
+                                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded transition-all shadow flex items-center space-x-1"
+                                        >
+                                            <span>📥</span>
+                                            <span>Download PDF</span>
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setPdfData(null)}
+                                            className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold px-3 py-2 rounded"
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* PDF EXPORT CONTENT AREA */}
+                                <div id="pdf-content" className="bg-white text-slate-900 p-8 rounded shadow text-sm space-y-6">
+                                    <div className="flex justify-between items-center border-b pb-4">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-slate-800">DATA ENTRY & CLAIM SUBMISSION FORM</h2>
+                                            <p className="text-xs text-slate-500 mt-0.5">Submitted On: {pdfData.timestamp}</p>
+                                        </div>
+                                        <div className="text-right text-xs text-slate-500 font-mono">
+                                            <p>REF NO: #{pdfData.id}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Data Fields Layout */}
+                                    <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-xs text-slate-800 border-b pb-4">
+                                        <div><strong>EMP ID:</strong> {pdfData.empId}</div>
+                                        <div><strong>Full Name:</strong> {pdfData.fullName}</div>
+                                        <div><strong>Department:</strong> {pdfData.department || '-'}</div>
+                                        <div><strong>Email:</strong> {pdfData.email}</div>
+                                        <div><strong>Location:</strong> {pdfData.location || '-'}</div>
+                                        <div><strong>Event Type:</strong> {pdfData.eventType || '-'}</div>
+                                        <div><strong>Beneficiary Category:</strong> {pdfData.beneficiaryCategory || '-'}</div>
+                                        <div><strong>Contribution Amt:</strong> {pdfData.contributionAmt ? `₹${pdfData.contributionAmt}` : '-'}</div>
+                                        <div><strong>Event Date:</strong> {pdfData.eventDate || '-'}</div>
+                                        <div><strong>Beneficiary Name:</strong> {pdfData.beneficiaryName || '-'}</div>
+                                    </div>
+
+                                    {pdfData.notes && (
+                                        <div className="text-xs bg-slate-50 p-3 rounded border border-slate-200">
+                                            <strong className="text-slate-700">Notes:</strong> {pdfData.notes}
+                                        </div>
+                                    )}
+
+                                    {/* DECLARATION STATEMENT */}
+                                    <div className="border border-slate-300 rounded p-4 bg-slate-50 space-y-1 my-4">
+                                        <h4 className="font-bold text-xs uppercase text-slate-800">Declaration</h4>
+                                        <p className="text-xs text-slate-700 italic leading-relaxed">
+                                            I hereby declare that I have neither claimed this claim previously nor will I claim it again in the future. I further affirm that this claim is not a duplicate claim.
+                                        </p>
+                                    </div>
+
+                                    {/* USER AND MANAGER SIGNATURE SECTION */}
+                                    <div className="flex justify-between items-end pt-12 text-xs">
+                                        <div className="text-center w-48">
+                                            <div className="border-b border-slate-400 mb-1"></div>
+                                            <p className="font-semibold text-slate-800">User Signature</p>
+                                            <p className="text-[10px] text-slate-500">({pdfData.fullName})</p>
+                                        </div>
+                                        <div className="text-center w-48">
+                                            <div className="border-b border-slate-400 mb-1"></div>
+                                            <p className="font-semibold text-slate-800">Manager Signature</p>
+                                            <p className="text-[10px] text-slate-500">(Verification & Approval)</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* FORM CONTAINER */}
                     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl mb-8">
                         <form onSubmit={handleSubmit} className="space-y-4">
                             
@@ -382,7 +489,6 @@
 
                             {/* ROW 1: EMP ID, Full Name, Department, Email */}
                             <div className="flex flex-wrap items-center gap-3">
-                                {/* EMP ID */}
                                 <div className="w-full sm:w-32">
                                     <label className="block text-sm text-slate-300 mb-1">EMP ID *</label>
                                     <input 
@@ -398,7 +504,6 @@
                                     />
                                 </div>
 
-                                {/* Full Name */}
                                 <div className="w-full sm:flex-1 min-w-[170px]">
                                     <label className="block text-sm text-slate-300 mb-1">Full Name *</label>
                                     <input 
@@ -411,7 +516,6 @@
                                     />
                                 </div>
 
-                                {/* Department */}
                                 <div className="w-full sm:flex-1 min-w-[160px]">
                                     <label className="block text-sm text-slate-300 mb-1">Department</label>
                                     <input 
@@ -424,7 +528,6 @@
                                     />
                                 </div>
 
-                                {/* Email Address */}
                                 <div className="w-full sm:flex-[1.2] min-w-[210px]">
                                     <label className="block text-sm text-slate-300 mb-1">Email Address *</label>
                                     <input 
@@ -438,7 +541,7 @@
                                 </div>
                             </div>
 
-                            {/* ROW 2: Location, Event Type, Beneficiary Category */}
+                            {/* ROW 2: Location, Event Type, Beneficiary Category Dropdowns */}
                             <div className="flex flex-wrap items-center gap-3 pt-1">
                                 <div className="w-full sm:flex-1 min-w-[180px]">
                                     <label className="block text-sm text-slate-300 mb-1">Location</label>
@@ -544,6 +647,7 @@
                         </form>
                     </div>
 
+                    {/* SUBMITTED RECORDS TABLE */}
                     {records.length > 0 && (
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
                             <div className="flex justify-between items-center mb-4">
@@ -565,6 +669,7 @@
                                             <th className="px-4 py-3">Amt</th>
                                             <th className="px-4 py-3">Date</th>
                                             <th className="px-4 py-3">Beneficiary</th>
+                                            <th className="px-4 py-3 text-center">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-700">
@@ -581,6 +686,15 @@
                                                 <td className="px-4 py-3 font-mono">{rec.contributionAmt || '-'}</td>
                                                 <td className="px-4 py-3 font-mono text-xs">{rec.eventDate || '-'}</td>
                                                 <td className="px-4 py-3">{rec.beneficiaryName || '-'}</td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setPdfData(rec)}
+                                                        className="bg-cyan-900/60 hover:bg-cyan-800 text-cyan-300 text-xs font-semibold px-2.5 py-1 rounded border border-cyan-700/60 transition-all shadow"
+                                                    >
+                                                        📄 PDF
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

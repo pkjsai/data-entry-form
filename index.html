@@ -31,6 +31,9 @@
                 fullName: '',
                 department: '',
                 email: '',
+                location: '',
+                eventType: '',
+                beneficiaryCategory: '',
                 role: 'User',
                 status: 'Active',
                 notes: ''
@@ -38,6 +41,7 @@
 
             const [records, setRecords] = useState([]);
             const [isSyncing, setIsSyncing] = useState(false);
+            const [isFetchingEmp, setIsFetchingEmp] = useState(false);
             const [toast, setToast] = useState('');
             const [showConfirmModal, setShowConfirmModal] = useState(false);
 
@@ -115,6 +119,37 @@
                 setFormData(prev => ({ ...prev, empId: numericValue }));
             };
 
+            // Fetch Employee Name using EMP ID
+            const handleFetchData = async () => {
+                if (!formData.empId) {
+                    showToast('⚠️ Please enter an EMP ID first.');
+                    return;
+                }
+
+                setIsFetchingEmp(true);
+                try {
+                    const res = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({
+                            action: 'getEmpName',
+                            empId: formData.empId
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.status === 'success' && data.empFullName) {
+                        setFormData(prev => ({ ...prev, fullName: data.empFullName }));
+                        showToast('✅ Employee data fetched!');
+                    } else {
+                        showToast('⚠️ Employee record not found.');
+                    }
+                } catch (err) {
+                    showToast('❌ Error fetching employee data.');
+                } finally {
+                    setIsFetchingEmp(false);
+                }
+            };
+
             const handleSubmit = async (e) => {
                 e.preventDefault();
 
@@ -138,6 +173,9 @@
                             fullName: formData.fullName,
                             department: formData.department,
                             email: formData.email,
+                            location: formData.location,
+                            eventType: formData.eventType,
+                            beneficiaryCategory: formData.beneficiaryCategory,
                             role: formData.role,
                             status: formData.status,
                             notes: formData.notes
@@ -151,6 +189,9 @@
                         fullName: '',
                         department: '',
                         email: '',
+                        location: '',
+                        eventType: '',
+                        beneficiaryCategory: '',
                         role: 'User',
                         status: 'Active',
                         notes: ''
@@ -322,9 +363,23 @@
 
                     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl mb-8">
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* Flex layout with equal compact gaps and adjusted input widths */}
+                            
+                            {/* FETCH DATA BUTTON ABOVE EMP ID */}
+                            <div className="flex items-center justify-between">
+                                <button 
+                                    type="button"
+                                    onClick={handleFetchData}
+                                    disabled={isFetchingEmp}
+                                    className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-3 py-1.5 rounded transition-all shadow flex items-center space-x-1.5 disabled:opacity-50"
+                                >
+                                    <span>🔍</span>
+                                    <span>{isFetchingEmp ? 'Fetching Data...' : 'Fetch Data'}</span>
+                                </button>
+                            </div>
+
+                            {/* FIRST ROW: EMP ID, Full Name, Department, Email */}
                             <div className="flex flex-wrap items-center gap-3">
-                                {/* EMP ID - Compact Fixed Width */}
+                                {/* EMP ID */}
                                 <div className="w-full sm:w-32">
                                     <label className="block text-sm text-slate-300 mb-1">EMP ID *</label>
                                     <input 
@@ -340,7 +395,7 @@
                                     />
                                 </div>
 
-                                {/* Full Name - Flexible width */}
+                                {/* Full Name */}
                                 <div className="w-full sm:flex-1 min-w-[170px]">
                                     <label className="block text-sm text-slate-300 mb-1">Full Name *</label>
                                     <input 
@@ -353,7 +408,7 @@
                                     />
                                 </div>
 
-                                {/* Department - Flexible width */}
+                                {/* Department */}
                                 <div className="w-full sm:flex-1 min-w-[160px]">
                                     <label className="block text-sm text-slate-300 mb-1">Department</label>
                                     <input 
@@ -366,7 +421,7 @@
                                     />
                                 </div>
 
-                                {/* Email Address - Slightly wider flexible width */}
+                                {/* Email Address */}
                                 <div className="w-full sm:flex-[1.2] min-w-[210px]">
                                     <label className="block text-sm text-slate-300 mb-1">Email Address *</label>
                                     <input 
@@ -380,7 +435,59 @@
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                            {/* SECOND ROW: Location, Event Type, Beneficiary Category Dropdowns */}
+                            <div className="flex flex-wrap items-center gap-3 pt-1">
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm text-slate-300 mb-1">Location</label>
+                                    <select 
+                                        name="location" 
+                                        value={formData.location} 
+                                        onChange={handleChange} 
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                    >
+                                        <option value="">Select Location</option>
+                                        <option value="Headquarters">Headquarters</option>
+                                        <option value="Branch Office">Branch Office</option>
+                                        <option value="Remote">Remote</option>
+                                        <option value="On-Site">On-Site</option>
+                                    </select>
+                                </div>
+
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm text-slate-300 mb-1">Event Type</label>
+                                    <select 
+                                        name="eventType" 
+                                        value={formData.eventType} 
+                                        onChange={handleChange} 
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                    >
+                                        <option value="">Select Event Type</option>
+                                        <option value="Training">Training</option>
+                                        <option value="Workshop">Workshop</option>
+                                        <option value="Seminar">Seminar</option>
+                                        <option value="CSR Drive">CSR Drive</option>
+                                    </select>
+                                </div>
+
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm text-slate-300 mb-1">Beneficiary Category</label>
+                                    <select 
+                                        name="beneficiaryCategory" 
+                                        value={formData.beneficiaryCategory} 
+                                        onChange={handleChange} 
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                    >
+                                        <option value="">Select Category</option>
+                                        <option value="Internal Employees">Internal Employees</option>
+                                        <option value="Students">Students</option>
+                                        <option value="Community Members">Community Members</option>
+                                        <option value="Vendors">Vendors</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* THIRD ROW: Role & Status */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                                 <div>
                                     <label className="block text-sm text-slate-300 mb-1">Role</label>
                                     <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm">
@@ -428,7 +535,9 @@
                                             <th className="px-4 py-3">Name</th>
                                             <th className="px-4 py-3">Department</th>
                                             <th className="px-4 py-3">Email</th>
-                                            <th className="px-4 py-3">Role</th>
+                                            <th className="px-4 py-3">Location</th>
+                                            <th className="px-4 py-3">Event Type</th>
+                                            <th className="px-4 py-3">Beneficiary</th>
                                             <th className="px-4 py-3">Status</th>
                                         </tr>
                                     </thead>
@@ -440,7 +549,9 @@
                                                 <td className="px-4 py-3 font-medium text-white">{rec.fullName}</td>
                                                 <td className="px-4 py-3">{rec.department}</td>
                                                 <td className="px-4 py-3">{rec.email}</td>
-                                                <td className="px-4 py-3">{rec.role}</td>
+                                                <td className="px-4 py-3">{rec.location || '-'}</td>
+                                                <td className="px-4 py-3">{rec.eventType || '-'}</td>
+                                                <td className="px-4 py-3">{rec.beneficiaryCategory || '-'}</td>
                                                 <td className="px-4 py-3">
                                                     <span className={`px-2 py-0.5 text-xs rounded ${rec.status === 'Active' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-700' : 'bg-rose-900/50 text-rose-400 border border-rose-700'}`}>
                                                         {rec.status}

@@ -18,7 +18,7 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        const API_URL = "https://script.google.com/macros/s/AKfycbxz_dQhvMKndcwCnZChY8etloherH7pneuSjzN7zniwMvjFLAfgEHfTqfRxmrM5i40b3g/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbzxuuXEyfiHlZ4rIdHg5rGByOJsNKfsf-vFg3cqjYwWJgd3K20FiR-6aPZq4hAcdyEMOQ/exec";
 
         function App() {
             // Auth States
@@ -47,7 +47,7 @@
             const [isFetchingEmp, setIsFetchingEmp] = useState(false);
             const [toast, setToast] = useState('');
             const [showConfirmModal, setShowConfirmModal] = useState(false);
-            const [pdfData, setPdfData] = useState(null); // Selected record for PDF download
+            const [pdfData, setPdfData] = useState(null);
 
             // Maintain session state on refresh
             useEffect(() => {
@@ -272,7 +272,7 @@
 
                             <form onSubmit={handleLogin} className="space-y-4">
                                 <div className="flex items-center space-x-3">
-                                    <label className="w-24 text-sm font-semibold text-slate-300">User ID:</label>
+                                    <label className="w-24 text-sm font-bold text-slate-200">User ID:</label>
                                     <input 
                                         type="text" 
                                         required
@@ -284,7 +284,7 @@
                                 </div>
 
                                 <div className="flex items-center space-x-3">
-                                    <label className="w-24 text-sm font-semibold text-slate-300">Password:</label>
+                                    <label className="w-24 text-sm font-bold text-slate-200">Password:</label>
                                     <input 
                                         type="password" 
                                         required
@@ -313,7 +313,7 @@
                 <div className="max-w-4xl mx-auto p-6">
                     <div className="flex justify-between items-center mb-6">
                         <h1 className="text-2xl font-bold text-cyan-400">
-                            Sales Promotion cmail..
+                            Sales Promotion claim form
                         </h1>
                         <div className="flex items-center space-x-3">
                             {records.length > 0 && (
@@ -448,7 +448,7 @@
                                     <div className="border border-slate-300 rounded p-4 bg-slate-50 space-y-1 my-4">
                                         <h4 className="font-bold text-xs uppercase text-slate-800">Declaration</h4>
                                         <p className="text-xs text-slate-700 italic leading-relaxed">
-                                            **Declaration: I declare that this is not a duplicate claim and has not been claimed previously..
+                                             I declare that this is not a duplicate claim and has not been claimed previously..
                                         </p>
                                     </div>
 
@@ -490,7 +490,7 @@
                             {/* ROW 1: EMP ID, Full Name, Department, Email */}
                             <div className="flex flex-wrap items-center gap-3">
                                 <div className="w-full sm:w-32">
-                                    <label className="block text-sm text-slate-300 mb-1">EMP ID *</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">EMP ID *</label>
                                     <input 
                                         type="text" 
                                         name="empId" 
@@ -505,7 +505,7 @@
                                 </div>
 
                                 <div className="w-full sm:flex-1 min-w-[170px]">
-                                    <label className="block text-sm text-slate-300 mb-1">Full Name *</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Full Name *</label>
                                     <input 
                                         type="text" 
                                         name="fullName" 
@@ -517,7 +517,7 @@
                                 </div>
 
                                 <div className="w-full sm:flex-1 min-w-[160px]">
-                                    <label className="block text-sm text-slate-300 mb-1">Department</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Department</label>
                                     <input 
                                         type="text" 
                                         name="department" 
@@ -529,7 +529,7 @@
                                 </div>
 
                                 <div className="w-full sm:flex-[1.2] min-w-[210px]">
-                                    <label className="block text-sm text-slate-300 mb-1">Email Address *</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Email Address *</label>
                                     <input 
                                         type="email" 
                                         name="email" 
@@ -544,7 +544,7 @@
                             {/* ROW 2: Location, Event Type, Beneficiary Category Dropdowns */}
                             <div className="flex flex-wrap items-center gap-3 pt-1">
                                 <div className="w-full sm:flex-1 min-w-[180px]">
-                                    <label className="block text-sm text-slate-300 mb-1">Location</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Location</label>
                                     <select 
                                         name="location" 
                                         value={formData.location} 
@@ -560,7 +560,7 @@
                                 </div>
 
                                 <div className="w-full sm:flex-1 min-w-[180px]">
-                                    <label className="block text-sm text-slate-300 mb-1">Event Type</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Event Type</label>
                                     <select 
                                         name="eventType" 
                                         value={formData.eventType} 
@@ -576,7 +576,7 @@
                                 </div>
 
                                 <div className="w-full sm:flex-1 min-w-[180px]">
-                                    <label className="block text-sm text-slate-300 mb-1">Beneficiary Category</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Beneficiary Category</label>
                                     <select 
                                         name="beneficiaryCategory" 
                                         value={formData.beneficiaryCategory} 
@@ -595,7 +595,7 @@
                             {/* ROW 3: Contribution Amt, Event Date (DD.MM.YY), Beneficiary Name */}
                             <div className="flex flex-wrap items-center gap-3 pt-1">
                                 <div className="w-full sm:flex-1 min-w-[180px]">
-                                    <label className="block text-sm text-slate-300 mb-1">Contribution Amt</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Contribution Amt</label>
                                     <input 
                                         type="number" 
                                         name="contributionAmt" 
@@ -607,7 +607,7 @@
                                 </div>
 
                                 <div className="w-full sm:flex-1 min-w-[180px]">
-                                    <label className="block text-sm text-slate-300 mb-1">Event Date</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Event Date</label>
                                     <input 
                                         type="text" 
                                         name="eventDate" 
@@ -620,7 +620,7 @@
                                 </div>
 
                                 <div className="w-full sm:flex-1 min-w-[180px]">
-                                    <label className="block text-sm text-slate-300 mb-1">Beneficiary Name</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Beneficiary Name</label>
                                     <input 
                                         type="text" 
                                         name="beneficiaryName" 
@@ -633,7 +633,7 @@
                             </div>
 
                             <div>
-                                <label className="block text-sm text-slate-300 mb-1">Notes</label>
+                                <label className="block text-sm font-bold text-slate-200 mb-1">Notes</label>
                                 <textarea name="notes" value={formData.notes} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm" rows="2"></textarea>
                             </div>
 
@@ -656,7 +656,7 @@
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm text-left text-slate-300">
-                                    <thead className="text-xs uppercase bg-slate-900 text-slate-400">
+                                    <thead className="text-xs uppercase bg-slate-900 text-slate-400 font-bold">
                                         <tr>
                                             <th className="px-4 py-3">Timestamp</th>
                                             <th className="px-4 py-3">EMP ID</th>

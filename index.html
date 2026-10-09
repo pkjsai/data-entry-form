@@ -28,7 +28,7 @@
             // App Form States
             const [formData, setFormData] = useState({
                 empId: '',
-                fullName: '',
+                empFullName: '',
                 email: '',
                 role: 'User',
                 department: 'Engineering',
@@ -36,7 +36,7 @@
                 notes: ''
             });
 
-            const [empList, setEmpList] = useState([]);
+            const [isFetchingName, setIsFetchingName] = useState(false);
             const [records, setRecords] = useState([]);
             const [isSyncing, setIsSyncing] = useState(false);
             const [toast, setToast] = useState('');
@@ -49,21 +49,6 @@
                     setIsAuthenticated(true);
                 }
             }, []);
-
-            // Fetch EMP ID dropdown options from employees.json in GitHub
-            useEffect(() => {
-                if (isAuthenticated) {
-                    fetch('employees.json')
-                        .then(res => res.json())
-                        .then(data => {
-                            setEmpList(data);
-                            if (data.length > 0) {
-                                setFormData(prev => ({ ...prev, empId: data[0].id }));
-                            }
-                        })
-                        .catch(err => console.error("Error loading employees list:", err));
-                }
-            }, [isAuthenticated]);
 
             // Local browser storage for record isolation
             useEffect(() => {
@@ -125,10 +110,47 @@
                 setFormData(prev => ({ ...prev, [name]: value }));
             };
 
+            // Handle EMP ID change & auto-lookup when 9 digits are entered
+            const handleEmpIdChange = async (e) => {
+                const numericValue = e.target.value.replace(/\D/g, ''); // Numeric only
+                setFormData(prev => ({ 
+                    ...prev, 
+                    empId: numericValue,
+                    empFullName: numericValue.length === 9 ? 'Searching...' : ''
+                }));
+
+                if (numericValue.length === 9) {
+                    setIsFetchingName(true);
+                    try {
+                        const res = await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain' },
+                            body: JSON.stringify({
+                                action: 'getEmpName',
+                                empId: numericValue
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            setFormData(prev => ({ 
+                                ...prev, 
+                                empFullName: (data.empFullName || 'Pls update').toUpperCase() 
+                            }));
+                        } else {
+                            setFormData(prev => ({ ...prev, empFullName: 'Pls update' }));
+                        }
+                    } catch (err) {
+                        setFormData(prev => ({ ...prev, empFullName: 'Pls update' }));
+                    } finally {
+                        setIsFetchingName(false);
+                    }
+                }
+            };
+
             const handleSubmit = async (e) => {
                 e.preventDefault();
 
-                if (!formData.fullName || !formData.email || !formData.empId) {
+                if (!formData.email || !formData.empId || !formData.empFullName) {
                     showToast('⚠️ Please fill in all required fields.');
                     return;
                 }
@@ -145,7 +167,7 @@
                         body: JSON.stringify({
                             action: 'submit',
                             empId: formData.empId,
-                            fullName: formData.fullName,
+                            empFullName: formData.empFullName.toUpperCase(),
                             email: formData.email,
                             role: formData.role,
                             department: formData.department,
@@ -157,8 +179,8 @@
                     setRecords(prev => [newRecord, ...prev]);
                     showToast('✅ Synced to Google Sheet successfully!');
                     setFormData({
-                        empId: empList.length > 0 ? empList[0].id : '',
-                        fullName: '',
+                        empId: '',
+                        empFullName: '',
                         email: '',
                         role: 'User',
                         department: 'Engineering',
@@ -332,39 +354,34 @@
 
                     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl mb-8">
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <div>
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                                <div className="sm:col-span-1">
                                     <label className="block text-sm text-slate-300 mb-1">EMP ID *</label>
-                                    <select 
-                                        name="empId" 
-                                        value={formData.empId} 
-                                        onChange={handleChange} 
-                                        required
-                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500"
-                                    >
-                                        {empList.length === 0 ? (
-                                            <option value="">Loading EMP IDs...</option>
-                                        ) : (
-                                            empList.map((emp) => (
-                                                <option key={emp.id} value={emp.id}>
-                                                    {emp.name || emp.id}
-                                                </option>
-                                            ))
-                                        )}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm text-slate-300 mb-1">Full Name *</label>
                                     <input 
                                         type="text" 
-                                        name="fullName" 
-                                        value={formData.fullName} 
-                                        onChange={handleChange} 
+                                        name="empId" 
+                                        value={formData.empId} 
+                                        onChange={handleEmpIdChange}
+                                        maxLength={9}
+                                        inputMode="numeric"
+                                        placeholder="e.g. 123456789"
                                         required
-                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 tracking-wider font-mono"
                                     />
                                 </div>
-                                <div>
+                                <div className="sm:col-span-1.5">
+                                    <label className="block text-sm text-slate-300 mb-1">EMP Full Name *</label>
+                                    <input 
+                                        type="text" 
+                                        name="empFullName" 
+                                        value={formData.empFullName} 
+                                        readOnly
+                                        required
+                                        placeholder="Auto-populated from EMP ID"
+                                        className={`w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 font-bold focus:outline-none uppercase ${formData.empFullName === 'Pls update' ? 'text-rose-400 border-rose-500/50' : 'text-cyan-300'}`}
+                                    />
+                                </div>
+                                <div className="sm:col-span-1.5">
                                     <label className="block text-sm text-slate-300 mb-1">Email Address *</label>
                                     <input 
                                         type="email" 
@@ -410,7 +427,7 @@
 
                             <button 
                                 type="submit" 
-                                disabled={isSyncing}
+                                disabled={isSyncing || isFetchingName}
                                 className="w-full bg-cyan-600 hover:bg-cyan-500 font-bold py-2.5 rounded transition-all text-white shadow-lg disabled:opacity-50"
                             >
                                 {isSyncing ? 'Syncing to Sheet...' : 'Submit & Sync Data'}
@@ -430,7 +447,7 @@
                                         <tr>
                                             <th className="px-4 py-3">Timestamp</th>
                                             <th className="px-4 py-3">EMP ID</th>
-                                            <th className="px-4 py-3">Name</th>
+                                            <th className="px-4 py-3">EMP Full Name</th>
                                             <th className="px-4 py-3">Email</th>
                                             <th className="px-4 py-3">Role</th>
                                             <th className="px-4 py-3">Department</th>
@@ -441,8 +458,8 @@
                                         {records.map((rec) => (
                                             <tr key={rec.id} className="hover:bg-slate-750">
                                                 <td className="px-4 py-3 text-xs text-slate-400">{rec.timestamp}</td>
-                                                <td className="px-4 py-3 font-semibold text-cyan-400">{rec.empId}</td>
-                                                <td className="px-4 py-3 font-medium text-white">{rec.fullName}</td>
+                                                <td className="px-4 py-3 font-semibold text-cyan-400 font-mono">{rec.empId}</td>
+                                                <td className="px-4 py-3 font-bold text-white uppercase">{rec.empFullName}</td>
                                                 <td className="px-4 py-3">{rec.email}</td>
                                                 <td className="px-4 py-3">{rec.role}</td>
                                                 <td className="px-4 py-3">{rec.department}</td>

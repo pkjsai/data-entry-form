@@ -34,8 +34,9 @@
                 location: '',
                 eventType: '',
                 beneficiaryCategory: '',
-                role: 'User',
-                status: 'Active',
+                contributionAmt: '',
+                eventDate: '',
+                beneficiaryName: '',
                 notes: ''
             });
 
@@ -176,8 +177,9 @@
                             location: formData.location,
                             eventType: formData.eventType,
                             beneficiaryCategory: formData.beneficiaryCategory,
-                            role: formData.role,
-                            status: formData.status,
+                            contributionAmt: formData.contributionAmt,
+                            eventDate: formData.eventDate,
+                            beneficiaryName: formData.beneficiaryName,
                             notes: formData.notes
                         })
                     });
@@ -192,8 +194,9 @@
                         location: '',
                         eventType: '',
                         beneficiaryCategory: '',
-                        role: 'User',
-                        status: 'Active',
+                        contributionAmt: '',
+                        eventDate: '',
+                        beneficiaryName: '',
                         notes: ''
                     });
                 } catch (err) {
@@ -377,7 +380,7 @@
                                 </button>
                             </div>
 
-                            {/* FIRST ROW: EMP ID, Full Name, Department, Email */}
+                            {/* ROW 1: EMP ID, Full Name, Department, Email */}
                             <div className="flex flex-wrap items-center gap-3">
                                 {/* EMP ID */}
                                 <div className="w-full sm:w-32">
@@ -435,7 +438,7 @@
                                 </div>
                             </div>
 
-                            {/* SECOND ROW: Location, Event Type, Beneficiary Category Dropdowns */}
+                            {/* ROW 2: Location, Event Type, Beneficiary Category */}
                             <div className="flex flex-wrap items-center gap-3 pt-1">
                                 <div className="w-full sm:flex-1 min-w-[180px]">
                                     <label className="block text-sm text-slate-300 mb-1">Location</label>
@@ -486,22 +489,43 @@
                                 </div>
                             </div>
 
-                            {/* THIRD ROW: Role & Status */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                                <div>
-                                    <label className="block text-sm text-slate-300 mb-1">Role</label>
-                                    <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm">
-                                        <option value="Admin">Admin</option>
-                                        <option value="User">User</option>
-                                        <option value="Manager">Manager</option>
-                                    </select>
+                            {/* ROW 3: Contribution Amt, Event Date (DD.MM.YY), Beneficiary Name */}
+                            <div className="flex flex-wrap items-center gap-3 pt-1">
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm text-slate-300 mb-1">Contribution Amt</label>
+                                    <input 
+                                        type="number" 
+                                        name="contributionAmt" 
+                                        value={formData.contributionAmt} 
+                                        onChange={handleChange} 
+                                        placeholder="e.g. 5000"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                    />
                                 </div>
-                                <div>
-                                    <label className="block text-sm text-slate-300 mb-1">Status</label>
-                                    <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm">
-                                        <option value="Active">Active</option>
-                                        <option value="Inactive">Inactive</option>
-                                    </select>
+
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm text-slate-300 mb-1">Event Date</label>
+                                    <input 
+                                        type="text" 
+                                        name="eventDate" 
+                                        value={formData.eventDate} 
+                                        onChange={handleChange} 
+                                        placeholder="DD.MM.YY"
+                                        maxLength={8}
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm font-mono tracking-wider"
+                                    />
+                                </div>
+
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm text-slate-300 mb-1">Beneficiary Name</label>
+                                    <input 
+                                        type="text" 
+                                        name="beneficiaryName" 
+                                        value={formData.beneficiaryName} 
+                                        onChange={handleChange} 
+                                        placeholder="Enter Name"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                    />
                                 </div>
                             </div>
 
@@ -537,8 +561,10 @@
                                             <th className="px-4 py-3">Email</th>
                                             <th className="px-4 py-3">Location</th>
                                             <th className="px-4 py-3">Event Type</th>
+                                            <th className="px-4 py-3">Category</th>
+                                            <th className="px-4 py-3">Amt</th>
+                                            <th className="px-4 py-3">Date</th>
                                             <th className="px-4 py-3">Beneficiary</th>
-                                            <th className="px-4 py-3">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-700">
@@ -552,11 +578,9 @@
                                                 <td className="px-4 py-3">{rec.location || '-'}</td>
                                                 <td className="px-4 py-3">{rec.eventType || '-'}</td>
                                                 <td className="px-4 py-3">{rec.beneficiaryCategory || '-'}</td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`px-2 py-0.5 text-xs rounded ${rec.status === 'Active' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-700' : 'bg-rose-900/50 text-rose-400 border border-rose-700'}`}>
-                                                        {rec.status}
-                                                    </span>
-                                                </td>
+                                                <td className="px-4 py-3 font-mono">{rec.contributionAmt || '-'}</td>
+                                                <td className="px-4 py-3 font-mono text-xs">{rec.eventDate || '-'}</td>
+                                                <td className="px-4 py-3">{rec.beneficiaryName || '-'}</td>
                                             </tr>
                                         ))}
                                     </tbody>

@@ -413,13 +413,11 @@
 
             return (
                 <div className="max-w-4xl mx-auto p-6">
-                    {/* NEW GLOWING HIGH-IMPACT HEADER DESIGN FOR "Sales Promotion claim" */}
+                    {/* TOP HEADER SECTION */}
                     <div className="flex justify-between items-center mb-8 no-print flex-wrap gap-4">
                         <div className="relative group">
-                            {/* Animated Background Blur Glow */}
                             <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 via-teal-400 to-blue-600 rounded-2xl blur-md opacity-70 group-hover:opacity-100 transition duration-500"></div>
                             
-                            {/* Header Badge Content */}
                             <div className="relative px-5 py-3 bg-slate-950/90 backdrop-blur-xl border border-cyan-500/50 rounded-2xl shadow-2xl flex items-center space-x-3">
                                 <div className="p-2 bg-cyan-500/20 text-cyan-300 rounded-xl border border-cyan-400/30 shadow-inner">
                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -683,17 +681,19 @@
 
                                         {/* Signatures */}
                                         <div style={{ paddingTop: '30px', paddingBottom: '10px' }}>
-                                            <table style={{ width: '100%' }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                                 <tbody>
                                                     <tr>
                                                         <td style={{ width: '45%', textAlign: 'center', verticalAlign: 'bottom' }}>
-                                                            <div style={{ borderBottom: '1.5px solid #475569', marginBottom: '8px' }}></div>
+                                                            {/* Explicit 1px solid background block ensures html2canvas paints line in PDF export */}
+                                                            <div style={{ height: '1px', backgroundColor: '#475569', width: '100%', marginBottom: '8px' }}></div>
                                                             <p style={{ margin: '0', fontWeight: 'bold', color: '#0f172a', fontSize: '12px' }}>User Signature</p>
                                                             <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '11px' }}>({pdfData.fullName})</p>
                                                         </td>
                                                         <td style={{ width: '10%' }}></td>
                                                         <td style={{ width: '45%', textAlign: 'center', verticalAlign: 'bottom' }}>
-                                                            <div style={{ borderBottom: '1.5px solid #475569', marginBottom: '8px' }}></div>
+                                                            {/* Explicit 1px solid background block ensures html2canvas paints line in PDF export */}
+                                                            <div style={{ height: '1px', backgroundColor: '#475569', width: '100%', marginBottom: '8px' }}></div>
                                                             <p style={{ margin: '0', fontWeight: 'bold', color: '#0f172a', fontSize: '12px' }}>Manager Signature</p>
                                                             <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '11px' }}>(Verification & Approval)</p>
                                                         </td>
@@ -712,7 +712,7 @@
                     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl mb-8 no-print">
                         <form onSubmit={handleSubmit} className="space-y-4">
                             
-                            {/* TOP HEADER ROW: Fetch Data on Left & Right-aligned text notice in single line */}
+                            {/* TOP HEADER ROW */}
                             <div className="flex items-center justify-between pb-1">
                                 <button 
                                     type="button"

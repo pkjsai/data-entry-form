@@ -47,6 +47,7 @@
             const [isFetchingEmp, setIsFetchingEmp] = useState(false);
             const [toast, setToast] = useState('');
             const [showConfirmModal, setShowConfirmModal] = useState(false);
+            const [sameDateWarningModal, setSameDateWarningModal] = useState(false);
             const [pdfData, setPdfData] = useState(null);
 
             // Maintain session state on refresh
@@ -71,7 +72,7 @@
 
             const showToast = (msg) => {
                 setToast(msg);
-                setTimeout(() => setToast(''), 4000);
+                setTimeout(() => setToast(''), 4500);
             };
 
             // Helper: Format eventDate string to DDMMYY (removes dots, slashes, dashes, spaces)
@@ -182,18 +183,50 @@
                 }
             };
 
+            // Main Submission Validation Handler
             const handleSubmit = async (e) => {
                 e.preventDefault();
 
-                if (!formData.fullName || !formData.email || !formData.empId) {
-                    showToast('⚠️ Please fill in all required fields.');
+                if (!formData.fullName || !formData.email || !formData.empId || !formData.eventDate) {
+                    showToast('⚠️ Please fill in all required fields including Event Date.');
                     return;
                 }
 
+                // RULE 1: STRICT BLOCK - Same EMP ID + Same Event Date + Same Beneficiary Name
+                const isStrictDuplicate = records.some(rec => 
+                    rec.empId === formData.empId &&
+                    rec.eventDate === formData.eventDate &&
+                    rec.beneficiaryName.trim().toLowerCase() === formData.beneficiaryName.trim().toLowerCase() &&
+                    rec.beneficiaryName.trim() !== ""
+                );
+
+                if (isStrictDuplicate) {
+                    showToast('❌ Submission Blocked: You have already submitted data for this Event Date and Beneficiary Name!');
+                    return;
+                }
+
+                // RULE 2: WARNING CHECK - Same EMP ID + Same Event Date (Any Event Type)
+                const hasSameDateEntry = records.some(rec => 
+                    rec.empId === formData.empId &&
+                    rec.eventDate === formData.eventDate
+                );
+
+                if (hasSameDateEntry) {
+                    setSameDateWarningModal(true);
+                    return;
+                }
+
+                executeSubmission();
+            };
+
+            // Post Data to Google Sheets & Save Record
+            const executeSubmission = async () => {
                 setIsSyncing(true);
+                setSameDateWarningModal(false);
+
                 const timestamp = new Date().toLocaleString();
 
-                // Compute Duplicate Checked Reference Number
+                // Compute Ref No
                 const refNumber = generateRefNumber(
                     formData.empId,
                     formData.eventDate,
@@ -397,7 +430,7 @@
                         </div>
                     )}
 
-                    {/* CONFIRM CLEAR MODAL */}
+                    {/* CONFIRM CLEAR HISTORY MODAL */}
                     {showConfirmModal && (
                         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                             <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full shadow-2xl space-y-4">
@@ -424,6 +457,46 @@
                                         className="px-4 py-2 rounded text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all shadow"
                                     >
                                         Yes, Clear
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MULTIPLE EVENT ATTENDANCE WARNING MODAL */}
+                    {sameDateWarningModal && (
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                            <div className="bg-slate-800 border border-amber-500/60 rounded-xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                                <div className="flex items-center space-x-3">
+                                    <div className="p-2 bg-amber-500/20 text-amber-400 rounded-lg">
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white">Event Attendance Confirmation</h3>
+                                </div>
+                                
+                                <p className="text-sm text-slate-200 font-medium">
+                                    Have you attended more than one event on same date?
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                    An earlier submission exists for EMP ID <span className="text-cyan-400 font-mono font-bold">{formData.empId}</span> on date <span className="text-cyan-400 font-mono font-bold">{formData.eventDate}</span>.
+                                </p>
+
+                                <div className="flex justify-end space-x-3 pt-3">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setSameDateWarningModal(false)}
+                                        className="px-4 py-2 rounded text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-slate-200 transition-all"
+                                    >
+                                        No (Cancel)
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={executeSubmission}
+                                        className="px-4 py-2 rounded text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow"
+                                    >
+                                        Yes (Submit Data)
                                     </button>
                                 </div>
                             </div>
@@ -650,7 +723,7 @@
                                 </div>
 
                                 <div className="w-full sm:flex-1 min-w-[180px]">
-                                    <label className="block text-sm font-bold text-slate-200 mb-1">Event Date</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Event Date *</label>
                                     <input 
                                         type="text" 
                                         name="eventDate" 
@@ -658,6 +731,7 @@
                                         onChange={handleChange} 
                                         placeholder="DD.MM.YY"
                                         maxLength={8}
+                                        required
                                         className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm font-mono tracking-wider"
                                     />
                                 </div>

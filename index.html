@@ -9,31 +9,8 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <style>
-        @media print {
-            body {
-                background: white !important;
-                color: black !important;
-            }
-            .no-print {
-                display: none !important;
-            }
-            .print-only {
-                display: block !important;
-            }
-            .printable-document {
-                background: white !important;
-                color: black !important;
-                border: 1px solid #ccc !important;
-                box-shadow: none !important;
-                padding: 20px !important;
-                width: 100% !important;
-            }
-            .signature-line {
-                border-top: 1px solid #000 !important;
-            }
-        }
-    </style>
+    <!-- PDF Generation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
     <div id="root"></div>
@@ -56,19 +33,23 @@
                 fullName: '',
                 department: '',
                 email: '',
+                location: '',
+                eventType: '',
+                beneficiaryCategory: '',
+                contributionAmt: '',
                 eventDate: '',
-                eventType: 'Meeting',
-                role: 'User',
-                status: 'Active',
+                beneficiaryName: '',
                 notes: ''
             });
 
             const [records, setRecords] = useState([]);
-            const [lastSubmitted, setLastSubmitted] = useState(null);
             const [isSyncing, setIsSyncing] = useState(false);
+            const [isFetchingEmp, setIsFetchingEmp] = useState(false);
             const [toast, setToast] = useState('');
             const [showConfirmModal, setShowConfirmModal] = useState(false);
+            const [pdfData, setPdfData] = useState(null);
 
+            // Maintain session state on refresh
             useEffect(() => {
                 const sessionUser = sessionStorage.getItem('portal_user_id');
                 if (sessionUser) {
@@ -76,6 +57,7 @@
                 }
             }, []);
 
+            // Local browser storage for record isolation
             useEffect(() => {
                 const saved = localStorage.getItem('user_private_records');
                 if (saved) {
@@ -92,22 +74,21 @@
                 setTimeout(() => setToast(''), 4000);
             };
 
-            // Helper: Format YYYY-MM-DD into DDMMYY
-            const formatDDMMYY = (dateStr) => {
-                if (!dateStr) return '';
-                const parts = dateStr.split('-');
-                if (parts.length === 3) {
-                    const [year, month, day] = parts;
-                    return `${day}${month}${year.slice(-2)}`;
+            // Helper: Format eventDate string to DDMMYY (removes dots, slashes, dashes, spaces)
+            const cleanDDMMYY = (rawDateStr) => {
+                if (!rawDateStr) return '';
+                const cleaned = rawDateStr.replace(/[^0-9]/g, '');
+                if (cleaned.length === 8) {
+                    return `${cleaned.slice(0, 4)}${cleaned.slice(6, 8)}`;
                 }
-                return dateStr;
+                return cleaned;
             };
 
-            // Control Check: EMP ID + Event Date + Event Type
+            // Control check based on EMP ID + Event Date + Event Type
             const generateRefNumber = (empIdVal, eventDateVal, eventTypeVal, existingRecords) => {
-                const baseFormattedDate = formatDDMMYY(eventDateVal);
+                const baseFormattedDate = cleanDDMMYY(eventDateVal);
 
-                // Count duplicates strictly for this EMP ID + Event Date + Event Type combination
+                // Count previous submissions for this exact EMP ID + Event Date + Event Type combination
                 const duplicateCount = existingRecords.filter(rec => 
                     rec.empId === empIdVal &&
                     rec.eventDate === eventDateVal && 
@@ -121,6 +102,7 @@
                 }
             };
 
+            // Login Logic
             const handleLogin = async (e) => {
                 e.preventDefault();
                 setIsAuthenticating(true);
@@ -163,27 +145,59 @@
                 setFormData(prev => ({ ...prev, [name]: value }));
             };
 
+            // Enforce numeric only input for EMP ID
             const handleEmpIdChange = (e) => {
                 const numericValue = e.target.value.replace(/\D/g, '');
                 setFormData(prev => ({ ...prev, empId: numericValue }));
             };
 
+            // Fetch Employee Name using EMP ID
+            const handleFetchData = async () => {
+                if (!formData.empId) {
+                    showToast('⚠️ Please enter an EMP ID first.');
+                    return;
+                }
+
+                setIsFetchingEmp(true);
+                try {
+                    const res = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({
+                            action: 'getEmpName',
+                            empId: formData.empId
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.status === 'success' && data.empFullName) {
+                        setFormData(prev => ({ ...prev, fullName: data.empFullName }));
+                        showToast('✅ Employee data fetched!');
+                    } else {
+                        showToast('⚠️ Employee record not found.');
+                    }
+                } catch (err) {
+                    showToast('❌ Error fetching employee data.');
+                } finally {
+                    setIsFetchingEmp(false);
+                }
+            };
+
             const handleSubmit = async (e) => {
                 e.preventDefault();
 
-                if (!formData.fullName || !formData.email || !formData.empId || !formData.eventDate) {
-                    showToast('⚠️ Please fill in all required fields including Event Date.');
+                if (!formData.fullName || !formData.email || !formData.empId) {
+                    showToast('⚠️ Please fill in all required fields.');
                     return;
                 }
 
                 setIsSyncing(true);
                 const timestamp = new Date().toLocaleString();
 
-                // Generate Ref No isolated per EMP ID
+                // Compute Duplicate Checked Reference Number
                 const refNumber = generateRefNumber(
-                    formData.empId, 
-                    formData.eventDate, 
-                    formData.eventType, 
+                    formData.empId,
+                    formData.eventDate,
+                    formData.eventType,
                     records
                 );
 
@@ -202,31 +216,37 @@
                         body: JSON.stringify({
                             action: 'submit',
                             refNumber: refNumber,
-                            eventDate: formData.eventDate,
-                            eventType: formData.eventType,
                             empId: formData.empId,
                             fullName: formData.fullName,
                             department: formData.department,
                             email: formData.email,
-                            role: formData.role,
-                            status: formData.status,
+                            location: formData.location,
+                            eventType: formData.eventType,
+                            beneficiaryCategory: formData.beneficiaryCategory,
+                            contributionAmt: formData.contributionAmt,
+                            eventDate: formData.eventDate,
+                            beneficiaryName: formData.beneficiaryName,
                             notes: formData.notes
                         })
                     });
 
                     setRecords(prev => [newRecord, ...prev]);
-                    setLastSubmitted(newRecord);
-                    showToast(`✅ Synced! Generated Ref No: ${refNumber}`);
+                    showToast(`✅ Synced! Ref No: ${refNumber}`);
+                    
+                    // Show PDF download preview modal
+                    setPdfData(newRecord);
 
                     setFormData({
                         empId: '',
                         fullName: '',
                         department: '',
                         email: '',
+                        location: '',
+                        eventType: '',
+                        beneficiaryCategory: '',
+                        contributionAmt: '',
                         eventDate: '',
-                        eventType: 'Meeting',
-                        role: 'User',
-                        status: 'Active',
+                        beneficiaryName: '',
                         notes: ''
                     });
                 } catch (err) {
@@ -236,13 +256,23 @@
                 }
             };
 
-            const handlePrint = () => {
-                window.print();
+            // Download Generated PDF Handler
+            const downloadPDF = () => {
+                if (!pdfData) return;
+                const element = document.getElementById('pdf-content');
+                const opt = {
+                    margin:       0.4,
+                    filename:     `Claim_Form_${pdfData.empId}_${pdfData.refNumber || pdfData.id}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2 },
+                    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                };
+
+                html2pdf().set(opt).from(element).save();
             };
 
             const confirmClearRecords = () => {
                 setRecords([]);
-                setLastSubmitted(null);
                 localStorage.removeItem('user_private_records');
                 setShowConfirmModal(false);
                 showToast('🧹 Your local history has been cleared!');
@@ -261,6 +291,7 @@
                 showToast('📊 Exported to Excel successfully!');
             };
 
+            // RENDER LOGIN SCREEN IF NOT AUTHENTICATED
             if (!isAuthenticated) {
                 return (
                     <div className="flex items-center justify-center min-h-screen p-4">
@@ -284,7 +315,7 @@
 
                             <form onSubmit={handleLogin} className="space-y-4">
                                 <div className="flex items-center space-x-3">
-                                    <label className="w-24 text-sm font-semibold text-slate-300">User ID:</label>
+                                    <label className="w-24 text-sm font-bold text-slate-200">User ID:</label>
                                     <input 
                                         type="text" 
                                         required
@@ -296,7 +327,7 @@
                                 </div>
 
                                 <div className="flex items-center space-x-3">
-                                    <label className="w-24 text-sm font-semibold text-slate-300">Password:</label>
+                                    <label className="w-24 text-sm font-bold text-slate-200">Password:</label>
                                     <input 
                                         type="password" 
                                         required
@@ -320,9 +351,10 @@
                 );
             }
 
+            // RENDER MAIN APPLICATION FORM AFTER AUTHENTICATION
             return (
                 <div className="max-w-4xl mx-auto p-6">
-                    <div className="flex justify-between items-center mb-6 no-print">
+                    <div className="flex justify-between items-center mb-6">
                         <h1 className="text-2xl font-bold text-cyan-400">
                             Data Entry & Google Sheet Sync
                         </h1>
@@ -333,7 +365,7 @@
                                     onClick={() => setShowConfirmModal(true)}
                                     className="bg-rose-600 hover:bg-rose-500 text-xs font-semibold px-3 py-2 rounded transition-all text-white shadow"
                                 >
-                                    🗑️ Clear History
+                                    🗑️ Clear My History
                                 </button>
                             )}
                             <button 
@@ -360,13 +392,14 @@
                     </div>
 
                     {toast && (
-                        <div className="fixed top-5 right-5 bg-slate-800 border border-cyan-500 text-slate-100 px-4 py-3 rounded shadow-2xl z-50 animate-bounce text-sm no-print">
+                        <div className="fixed top-5 right-5 bg-slate-800 border border-cyan-500 text-slate-100 px-4 py-3 rounded shadow-2xl z-50 animate-bounce text-sm">
                             {toast}
                         </div>
                     )}
 
+                    {/* CONFIRM CLEAR MODAL */}
                     {showConfirmModal && (
-                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
+                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                             <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full shadow-2xl space-y-4">
                                 <div className="flex items-center space-x-3">
                                     <div className="p-2 bg-rose-500/20 text-rose-400 rounded-lg">
@@ -397,40 +430,110 @@
                         </div>
                     )}
 
-                    {/* Form Section */}
-                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl mb-8 no-print">
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm text-slate-300 mb-1">Event Date *</label>
-                                    <input 
-                                        type="date" 
-                                        name="eventDate" 
-                                        value={formData.eventDate} 
-                                        onChange={handleChange} 
-                                        required
-                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500"
-                                    />
+                    {/* PRINTABLE PDF MODAL */}
+                    {pdfData && (
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+                            <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 shadow-2xl">
+                                <div className="flex justify-between items-center border-b border-slate-700 pb-3">
+                                    <h3 className="text-lg font-bold text-cyan-400">Printable Submission Receipt</h3>
+                                    <div className="flex space-x-2">
+                                        <button 
+                                            type="button"
+                                            onClick={downloadPDF}
+                                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded transition-all shadow flex items-center space-x-1"
+                                        >
+                                            <span>📥</span>
+                                            <span>Download PDF</span>
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setPdfData(null)}
+                                            className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold px-3 py-2 rounded"
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm text-slate-300 mb-1">Event Type *</label>
-                                    <select 
-                                        name="eventType" 
-                                        value={formData.eventType} 
-                                        onChange={handleChange} 
-                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500"
-                                    >
-                                        <option value="Meeting">Meeting</option>
-                                        <option value="Inspection">Inspection</option>
-                                        <option value="Training">Training</option>
-                                        <option value="Audit">Audit</option>
-                                    </select>
+
+                                {/* PDF EXPORT CONTENT AREA */}
+                                <div id="pdf-content" className="bg-white text-slate-900 p-8 rounded shadow text-sm space-y-6">
+                                    <div className="flex justify-between items-center border-b pb-4">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-slate-800">DATA ENTRY & CLAIM SUBMISSION FORM</h2>
+                                            <p className="text-xs text-slate-500 mt-0.5">Submitted On: {pdfData.timestamp}</p>
+                                        </div>
+                                        <div className="text-right text-xs text-slate-500 font-mono">
+                                            <p className="font-bold text-slate-800 text-sm">REF NO: {pdfData.refNumber || `#${pdfData.id}`}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Data Fields Layout */}
+                                    <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-xs text-slate-800 border-b pb-4">
+                                        <div><strong>EMP ID:</strong> {pdfData.empId}</div>
+                                        <div><strong>Full Name:</strong> {pdfData.fullName}</div>
+                                        <div><strong>Department:</strong> {pdfData.department || '-'}</div>
+                                        <div><strong>Email:</strong> {pdfData.email}</div>
+                                        <div><strong>Location:</strong> {pdfData.location || '-'}</div>
+                                        <div><strong>Event Type:</strong> {pdfData.eventType || '-'}</div>
+                                        <div><strong>Beneficiary Category:</strong> {pdfData.beneficiaryCategory || '-'}</div>
+                                        <div><strong>Contribution Amt:</strong> {pdfData.contributionAmt ? `₹${pdfData.contributionAmt}` : '-'}</div>
+                                        <div><strong>Event Date:</strong> {pdfData.eventDate || '-'}</div>
+                                        <div><strong>Beneficiary Name:</strong> {pdfData.beneficiaryName || '-'}</div>
+                                    </div>
+
+                                    {pdfData.notes && (
+                                        <div className="text-xs bg-slate-50 p-3 rounded border border-slate-200">
+                                            <strong className="text-slate-700">Notes:</strong> {pdfData.notes}
+                                        </div>
+                                    )}
+
+                                    {/* DECLARATION STATEMENT */}
+                                    <div className="border border-slate-300 rounded p-4 bg-slate-50 space-y-1 my-4">
+                                        <h4 className="font-bold text-xs uppercase text-slate-800">Declaration</h4>
+                                        <p className="text-xs text-slate-700 italic leading-relaxed">
+                                            I hereby declare that I have neither claimed this claim previously nor will I claim it again in the future. I further affirm that this claim is not a duplicate claim.
+                                        </p>
+                                    </div>
+
+                                    {/* USER AND MANAGER SIGNATURE SECTION */}
+                                    <div className="flex justify-between items-end pt-12 text-xs">
+                                        <div className="text-center w-48">
+                                            <div className="border-b border-slate-400 mb-1"></div>
+                                            <p className="font-semibold text-slate-800">User Signature</p>
+                                            <p className="text-[10px] text-slate-500">({pdfData.fullName})</p>
+                                        </div>
+                                        <div className="text-center w-48">
+                                            <div className="border-b border-slate-400 mb-1"></div>
+                                            <p className="font-semibold text-slate-800">Manager Signature</p>
+                                            <p className="text-[10px] text-slate-500">(Verification & Approval)</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+                    )}
 
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                                <div className="sm:col-span-1">
-                                    <label className="block text-sm text-slate-300 mb-1">EMP ID *</label>
+                    {/* FORM CONTAINER */}
+                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl mb-8">
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            
+                            {/* FETCH DATA BUTTON ABOVE EMP ID */}
+                            <div className="flex items-center justify-between">
+                                <button 
+                                    type="button"
+                                    onClick={handleFetchData}
+                                    disabled={isFetchingEmp}
+                                    className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-3 py-1.5 rounded transition-all shadow flex items-center space-x-1.5 disabled:opacity-50"
+                                >
+                                    <span>🔍</span>
+                                    <span>{isFetchingEmp ? 'Fetching Data...' : 'Fetch Data'}</span>
+                                </button>
+                            </div>
+
+                            {/* ROW 1: EMP ID, Full Name, Department, Email */}
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="w-full sm:w-32">
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">EMP ID *</label>
                                     <input 
                                         type="text" 
                                         name="empId" 
@@ -440,162 +543,203 @@
                                         inputMode="numeric"
                                         placeholder="e.g. 123456789"
                                         required
-                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 tracking-wider font-mono"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 tracking-wider font-mono text-sm"
                                     />
                                 </div>
-                                <div className="sm:col-span-1">
-                                    <label className="block text-sm text-slate-300 mb-1">Full Name *</label>
+
+                                <div className="w-full sm:flex-1 min-w-[170px]">
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Full Name *</label>
                                     <input 
                                         type="text" 
                                         name="fullName" 
                                         value={formData.fullName} 
                                         onChange={handleChange} 
                                         required
-                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
                                     />
                                 </div>
-                                <div className="sm:col-span-1">
-                                    <label className="block text-sm text-slate-300 mb-1">Department</label>
+
+                                <div className="w-full sm:flex-1 min-w-[160px]">
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Department</label>
                                     <input 
                                         type="text" 
                                         name="department" 
                                         value={formData.department} 
                                         onChange={handleChange} 
                                         placeholder="e.g. Engineering"
-                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
                                     />
                                 </div>
-                                <div className="sm:col-span-1">
-                                    <label className="block text-sm text-slate-300 mb-1">Email Address *</label>
+
+                                <div className="w-full sm:flex-[1.2] min-w-[210px]">
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Email Address *</label>
                                     <input 
                                         type="email" 
                                         name="email" 
                                         value={formData.email} 
                                         onChange={handleChange} 
                                         required
-                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
                                     />
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm text-slate-300 mb-1">Role</label>
-                                    <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500">
-                                        <option value="Admin">Admin</option>
-                                        <option value="User">User</option>
-                                        <option value="Manager">Manager</option>
+                            {/* ROW 2: Location, Event Type, Beneficiary Category Dropdowns */}
+                            <div className="flex flex-wrap items-center gap-3 pt-1">
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Location</label>
+                                    <select 
+                                        name="location" 
+                                        value={formData.location} 
+                                        onChange={handleChange} 
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                    >
+                                        <option value="">Select Location</option>
+                                        <option value="Headquarters">Headquarters</option>
+                                        <option value="Branch Office">Branch Office</option>
+                                        <option value="Remote">Remote</option>
+                                        <option value="On-Site">On-Site</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label className="block text-sm text-slate-300 mb-1">Status</label>
-                                    <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500">
-                                        <option value="Active">Active</option>
-                                        <option value="Inactive">Inactive</option>
+
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Event Type</label>
+                                    <select 
+                                        name="eventType" 
+                                        value={formData.eventType} 
+                                        onChange={handleChange} 
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                    >
+                                        <option value="">Select Event Type</option>
+                                        <option value="Training">Training</option>
+                                        <option value="Workshop">Workshop</option>
+                                        <option value="Seminar">Seminar</option>
+                                        <option value="CSR Drive">CSR Drive</option>
+                                    </select>
+                                </div>
+
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Beneficiary Category</label>
+                                    <select 
+                                        name="beneficiaryCategory" 
+                                        value={formData.beneficiaryCategory} 
+                                        onChange={handleChange} 
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                    >
+                                        <option value="">Select Category</option>
+                                        <option value="Internal Employees">Internal Employees</option>
+                                        <option value="Students">Students</option>
+                                        <option value="Community Members">Community Members</option>
+                                        <option value="Vendors">Vendors</option>
                                     </select>
                                 </div>
                             </div>
 
+                            {/* ROW 3: Contribution Amt, Event Date (DD.MM.YY), Beneficiary Name */}
+                            <div className="flex flex-wrap items-center gap-3 pt-1">
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Contribution Amt</label>
+                                    <input 
+                                        type="number" 
+                                        name="contributionAmt" 
+                                        value={formData.contributionAmt} 
+                                        onChange={handleChange} 
+                                        placeholder="e.g. 5000"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                    />
+                                </div>
+
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Event Date</label>
+                                    <input 
+                                        type="text" 
+                                        name="eventDate" 
+                                        value={formData.eventDate} 
+                                        onChange={handleChange} 
+                                        placeholder="DD.MM.YY"
+                                        maxLength={8}
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm font-mono tracking-wider"
+                                    />
+                                </div>
+
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Beneficiary Name</label>
+                                    <input 
+                                        type="text" 
+                                        name="beneficiaryName" 
+                                        value={formData.beneficiaryName} 
+                                        onChange={handleChange} 
+                                        placeholder="Enter Name"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                    />
+                                </div>
+                            </div>
+
                             <div>
-                                <label className="block text-sm text-slate-300 mb-1">Notes</label>
-                                <textarea name="notes" value={formData.notes} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500" rows="2"></textarea>
+                                <label className="block text-sm font-bold text-slate-200 mb-1">Notes</label>
+                                <textarea name="notes" value={formData.notes} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm" rows="2"></textarea>
                             </div>
 
                             <button 
                                 type="submit" 
                                 disabled={isSyncing}
-                                className="w-full bg-cyan-600 hover:bg-cyan-500 font-bold py-2.5 rounded transition-all text-white shadow-lg disabled:opacity-50"
+                                className="w-full bg-cyan-600 hover:bg-cyan-500 font-bold py-2.5 rounded transition-all text-white shadow-lg disabled:opacity-50 text-sm"
                             >
                                 {isSyncing ? 'Syncing to Sheet...' : 'Submit & Sync Data'}
                             </button>
                         </form>
                     </div>
 
-                    {/* PRINTABLE RECEIPT CARD */}
-                    {lastSubmitted && (
-                        <div className="printable-document bg-slate-800 p-6 rounded-xl border border-cyan-500/50 shadow-2xl mb-8">
-                            <div className="flex justify-between items-center pb-4 border-b border-slate-700 mb-4">
-                                <div>
-                                    <h2 className="text-xl font-bold text-cyan-400">Submission Receipt</h2>
-                                    <p className="text-sm font-bold text-white mt-1">
-                                        Ref No: <span className="font-mono text-cyan-300 text-base">{lastSubmitted.refNumber}</span>
-                                    </p>
-                                    <p className="text-xs text-slate-400">Submitted: {lastSubmitted.timestamp}</p>
-                                </div>
-                                <button 
-                                    type="button" 
-                                    onClick={handlePrint}
-                                    className="no-print bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-4 py-2 rounded text-sm transition-all shadow flex items-center space-x-2"
-                                >
-                                    <span>🖨️ Save as PDF / Print</span>
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 text-sm mb-6">
-                                <div><strong className="text-slate-400">EMP ID:</strong> <span className="text-white font-mono">{lastSubmitted.empId}</span></div>
-                                <div><strong className="text-slate-400">Full Name:</strong> <span className="text-white">{lastSubmitted.fullName}</span></div>
-                                <div><strong className="text-slate-400">Event Date:</strong> <span className="text-white">{lastSubmitted.eventDate}</span></div>
-                                <div><strong className="text-slate-400">Event Type:</strong> <span className="text-white">{lastSubmitted.eventType}</span></div>
-                                <div><strong className="text-slate-400">Department:</strong> <span className="text-white">{lastSubmitted.department || 'N/A'}</span></div>
-                                <div><strong className="text-slate-400">Email:</strong> <span className="text-white">{lastSubmitted.email}</span></div>
-                                <div><strong className="text-slate-400">Role:</strong> <span className="text-white">{lastSubmitted.role}</span></div>
-                                <div><strong className="text-slate-400">Status:</strong> <span className="text-white">{lastSubmitted.status}</span></div>
-                                <div className="col-span-2"><strong className="text-slate-400">Notes:</strong> <span className="text-white">{lastSubmitted.notes || 'None'}</span></div>
-                            </div>
-
-                            {/* SIGNATURE SECTION BEFORE FOOTER */}
-                            <div className="mt-12 pt-8 border-t border-slate-700 grid grid-cols-2 gap-12 text-center">
-                                <div>
-                                    <div className="signature-line border-t border-slate-500 pt-2 text-xs font-semibold uppercase text-slate-300">
-                                        User Signature
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 mt-1">{lastSubmitted.fullName}</p>
-                                </div>
-                                <div>
-                                    <div className="signature-line border-t border-slate-500 pt-2 text-xs font-semibold uppercase text-slate-300">
-                                        Manager Signature
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 mt-1">Approval Signature & Date</p>
-                                </div>
-                            </div>
-
-                            {/* FOOTER */}
-                            <div className="mt-8 text-center text-[10px] text-slate-500 border-t border-slate-700/50 pt-3">
-                                Official Verification Record • Ref: {lastSubmitted.refNumber} • Generated by Data Entry Portal
-                            </div>
-                        </div>
-                    )}
-
-                    {/* RECORDS HISTORY TABLE */}
+                    {/* SUBMITTED RECORDS TABLE */}
                     {records.length > 0 && (
-                        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl no-print">
+                        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-lg font-bold text-slate-200">My Submitted Records</h2>
                                 <span className="text-xs text-slate-400">Private to your browser</span>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm text-left text-slate-300">
-                                    <thead className="text-xs uppercase bg-slate-900 text-slate-400">
+                                    <thead className="text-xs uppercase bg-slate-900 text-slate-400 font-bold">
                                         <tr>
                                             <th className="px-4 py-3">Ref No</th>
+                                            <th className="px-4 py-3">Timestamp</th>
                                             <th className="px-4 py-3">EMP ID</th>
-                                            <th className="px-4 py-3">Event Date</th>
-                                            <th className="px-4 py-3">Event Type</th>
                                             <th className="px-4 py-3">Name</th>
                                             <th className="px-4 py-3">Department</th>
-                                            <th className="px-4 py-3">Role</th>
+                                            <th className="px-4 py-3">Email</th>
+                                            <th className="px-4 py-3">Location</th>
+                                            <th className="px-4 py-3">Event Type</th>
+                                            <th className="px-4 py-3">Category</th>
+                                            <th className="px-4 py-3">Amt</th>
+                                            <th className="px-4 py-3">Date</th>
+                                            <th className="px-4 py-3">Beneficiary</th>
+                                            <th className="px-4 py-3 text-center">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-700">
                                         {records.map((rec) => (
                                             <tr key={rec.id} className="hover:bg-slate-750">
-                                                <td className="px-4 py-3 font-semibold text-cyan-400 font-mono">{rec.refNumber}</td>
-                                                <td className="px-4 py-3 font-mono">{rec.empId}</td>
-                                                <td className="px-4 py-3 text-xs">{rec.eventDate}</td>
-                                                <td className="px-4 py-3 text-xs">{rec.eventType}</td>
+                                                <td className="px-4 py-3 font-semibold text-cyan-400 font-mono">{rec.refNumber || '-'}</td>
+                                                <td className="px-4 py-3 text-xs text-slate-400">{rec.timestamp}</td>
+                                                <td className="px-4 py-3 font-semibold text-cyan-400 font-mono">{rec.empId}</td>
                                                 <td className="px-4 py-3 font-medium text-white">{rec.fullName}</td>
                                                 <td className="px-4 py-3">{rec.department}</td>
-                                                <td className="px-4 py-3">{rec.role}</td>
+                                                <td className="px-4 py-3">{rec.email}</td>
+                                                <td className="px-4 py-3">{rec.location || '-'}</td>
+                                                <td className="px-4 py-3">{rec.eventType || '-'}</td>
+                                                <td className="px-4 py-3">{rec.beneficiaryCategory || '-'}</td>
+                                                <td className="px-4 py-3 font-mono">{rec.contributionAmt || '-'}</td>
+                                                <td className="px-4 py-3 font-mono text-xs">{rec.eventDate || '-'}</td>
+                                                <td className="px-4 py-3">{rec.beneficiaryName || '-'}</td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setPdfData(rec)}
+                                                        className="bg-cyan-900/60 hover:bg-cyan-800 text-cyan-300 text-xs font-semibold px-2.5 py-1 rounded border border-cyan-700/60 transition-all shadow"
+                                                    >
+                                                        📄 PDF
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

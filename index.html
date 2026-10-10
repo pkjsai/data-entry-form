@@ -689,8 +689,8 @@
                     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl mb-8 no-print">
                         <form onSubmit={handleSubmit} className="space-y-4">
                             
-                            {/* TOP ACTION ROW */}
-                            <div className="flex items-center justify-between">
+                            {/* TOP HEADER ROW: Fetch Data on Left & Right-aligned text notice in single line */}
+                            <div className="flex items-center justify-between pb-1">
                                 <button 
                                     type="button"
                                     onClick={handleFetchData}
@@ -700,11 +700,8 @@
                                     <span>🔍</span>
                                     <span>{isFetchingEmp ? 'Fetching Data...' : 'Fetch Data'}</span>
                                 </button>
-                            </div>
 
-                            {/* DEDICATED NOTICE ROW: Single line directly above Email Address aligned to the right */}
-                            <div className="flex justify-end pt-1">
-                                <p className="text-[11px] text-amber-400 font-medium italic whitespace-nowrap text-right">
+                                <p className="text-[11px] text-amber-400 font-medium italic whitespace-nowrap text-right pl-2">
                                     # Data will be captured from server, In case not updated then update it.
                                 </p>
                             </div>

@@ -651,7 +651,7 @@
                                             </p>
                                         </div>
 
-                                        {/* REQUEST 2: SAP Document No line after Declaration with skipped rows */}
+                                        {/* SAP Document No line after Declaration */}
                                         <div style={{ marginTop: '40px', marginBottom: '30px', paddingLeft: '4px' }}>
                                             <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', margin: 0 }}>
                                                 SAP Document No: <span style={{ borderBottom: '1px solid #94a3b8', display: 'inline-block', width: '220px', marginLeft: '8px' }}>&nbsp;</span>
@@ -689,6 +689,7 @@
                     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl mb-8 no-print">
                         <form onSubmit={handleSubmit} className="space-y-4">
                             
+                            {/* TOP ACTION ROW */}
                             <div className="flex items-center justify-between">
                                 <button 
                                     type="button"
@@ -699,6 +700,13 @@
                                     <span>🔍</span>
                                     <span>{isFetchingEmp ? 'Fetching Data...' : 'Fetch Data'}</span>
                                 </button>
+                            </div>
+
+                            {/* DEDICATED NOTICE ROW: Single line directly above Email Address aligned to the right */}
+                            <div className="flex justify-end pt-1">
+                                <p className="text-[11px] text-amber-400 font-medium italic whitespace-nowrap text-right">
+                                    # Data will be captured from server, In case not updated then update it.
+                                </p>
                             </div>
 
                             {/* ROW 1 */}
@@ -743,10 +751,6 @@
                                 </div>
 
                                 <div className="w-full sm:flex-[1.2] min-w-[210px]">
-                                    {/* REQUEST 1: Text message shifted directly above Email Address */}
-                                    <p className="text-[11px] text-amber-400 font-medium italic mb-1 leading-tight">
-                                        # Data will be captured from server, In case not updated then update it
-                                    </p>
                                     <label className="block text-sm font-bold text-slate-200 mb-1">Email Address #</label>
                                     <input 
                                         type="email" 

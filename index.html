@@ -10,27 +10,23 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        /* CSS Print Setup for Perfect PDF Generation */
+        /* CSS Print Setup for Perfect Native Printing/PDF */
         @media print {
             body * {
-                visibility: hidden;
+                visibility: hidden !important;
             }
             #printable-receipt, #printable-receipt * {
-                visibility: visible;
+                visibility: visible !important;
             }
             #printable-receipt {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                min-height: 95vh;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
                 background: white !important;
                 color: black !important;
                 padding: 24px !important;
                 box-shadow: none !important;
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: space-between !important;
             }
             .no-print {
                 display: none !important;
@@ -494,11 +490,13 @@
                         </div>
                     )}
 
-                    {/* PRINTABLE PDF RECEIPT MODAL */}
+                    {/* RECEIPT PREVIEW MODAL */}
                     {pdfData && (
                         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto no-print">
-                            <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 shadow-2xl">
-                                <div className="flex justify-between items-center border-b border-slate-700 pb-3">
+                            <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] flex flex-col">
+                                
+                                {/* TOP BUTTON BAR ALWAYS VISIBLE */}
+                                <div className="flex justify-between items-center border-b border-slate-700 pb-3 shrink-0">
                                     <h3 className="text-lg font-bold text-cyan-400">Printable Submission Receipt</h3>
                                     <div className="flex space-x-2">
                                         <button 
@@ -519,10 +517,10 @@
                                     </div>
                                 </div>
 
-                                {/* PDF RECEIPT VIEW CONTAINER */}
-                                <div id="printable-receipt" style={{ backgroundColor: '#ffffff', color: '#1e293b', padding: '32px', fontFamily: 'Arial, sans-serif', fontSize: '13px', borderRadius: '8px', minHeight: '680px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                                    
-                                    <div>
+                                {/* RECEIPT BODY CONTAINER */}
+                                <div className="overflow-y-auto pr-1">
+                                    <div id="printable-receipt" style={{ backgroundColor: '#ffffff', color: '#1e293b', padding: '32px', fontFamily: 'Arial, sans-serif', fontSize: '13px', borderRadius: '8px' }}>
+                                        
                                         {/* Header */}
                                         <table style={{ width: '100%', borderBottom: '2px solid #0284c7', paddingBottom: '12px', marginBottom: '24px' }}>
                                             <tbody>
@@ -540,7 +538,7 @@
                                             </tbody>
                                         </table>
 
-                                        {/* Fields Layout */}
+                                        {/* Data Fields */}
                                         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
                                             <tbody>
                                                 <tr>
@@ -586,41 +584,41 @@
                                             </tbody>
                                         </table>
 
-                                        {/* Notes Section - Placed Before Declaration */}
+                                        {/* Notes Section */}
                                         <div style={{ backgroundColor: '#f8fafc', padding: '12px 14px', border: '1px solid #cbd5e1', borderRadius: '6px', marginBottom: '20px' }}>
                                             <strong style={{ color: '#334155' }}>Notes:</strong> <span style={{ color: '#0f172a' }}>{pdfData.notes ? pdfData.notes : '-'}</span>
                                         </div>
 
-                                        {/* Declaration Statement */}
-                                        <div style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', padding: '14px 16px', borderRadius: '6px', marginBottom: '30px' }}>
+                                        {/* Declaration Box */}
+                                        <div style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', padding: '14px 16px', borderRadius: '6px', marginBottom: '40px' }}>
                                             <h4 style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#1e293b', margin: '0 0 4px 0' }}>Declaration</h4>
                                             <p style={{ fontSize: '11px', color: '#334155', fontStyle: 'italic', margin: 0, lineHeight: '1.5' }}>
-                                                I hereby declare that I have neither claimed this claim previously nor will I claim it again in the future. I further affirm that this claim is not a duplicate claim.
+                                                I hereby declare that this event claim has not been claimed previously...
                                             </p>
                                         </div>
-                                    </div>
 
-                                    {/* User & Manager Signature Lines - Positioned Near End of PDF Page */}
-                                    <div style={{ marginTop: 'auto', paddingTop: '40px', paddingBottom: '10px' }}>
-                                        <table style={{ width: '100%' }}>
-                                            <tbody>
-                                                <tr>
-                                                    <td style={{ width: '45%', textAlign: 'center', verticalAlign: 'bottom' }}>
-                                                        <div style={{ borderBottom: '1.5px solid #475569', marginBottom: '8px' }}></div>
-                                                        <p style={{ margin: '0', fontWeight: 'bold', color: '#0f172a', fontSize: '12px' }}>User Signature</p>
-                                                        <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '11px' }}>({pdfData.fullName})</p>
-                                                    </td>
-                                                    <td style={{ width: '10%' }}></td>
-                                                    <td style={{ width: '45%', textAlign: 'center', verticalAlign: 'bottom' }}>
-                                                        <div style={{ borderBottom: '1.5px solid #475569', marginBottom: '8px' }}></div>
-                                                        <p style={{ margin: '0', fontWeight: 'bold', color: '#0f172a', fontSize: '12px' }}>Manager Signature</p>
-                                                        <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '11px' }}>(Verification & Approval)</p>
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                        {/* Signatures */}
+                                        <div style={{ paddingTop: '20px', paddingBottom: '10px' }}>
+                                            <table style={{ width: '100%' }}>
+                                                <tbody>
+                                                    <tr>
+                                                        <td style={{ width: '45%', textAlign: 'center', verticalAlign: 'bottom' }}>
+                                                            <div style={{ borderBottom: '1.5px solid #475569', marginBottom: '8px' }}></div>
+                                                            <p style={{ margin: '0', fontWeight: 'bold', color: '#0f172a', fontSize: '12px' }}>User Signature</p>
+                                                            <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '11px' }}>({pdfData.fullName})</p>
+                                                        </td>
+                                                        <td style={{ width: '10%' }}></td>
+                                                        <td style={{ width: '45%', textAlign: 'center', verticalAlign: 'bottom' }}>
+                                                            <div style={{ borderBottom: '1.5px solid #475569', marginBottom: '8px' }}></div>
+                                                            <p style={{ margin: '0', fontWeight: 'bold', color: '#0f172a', fontSize: '12px' }}>Manager Signature</p>
+                                                            <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '11px' }}>(Verification & Approval)</p>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
 
+                                    </div>
                                 </div>
                             </div>
                         </div>

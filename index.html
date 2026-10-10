@@ -58,6 +58,8 @@
                 contributionAmt: '',
                 eventDate: '',
                 beneficiaryName: '',
+                ioNo: '',
+                glCode: '230189',
                 notes: ''
             });
 
@@ -158,6 +160,14 @@
             const handleChange = (e) => {
                 const { name, value } = e.target;
                 setFormData(prev => ({ ...prev, [name]: value }));
+            };
+
+            const handleGlCodeChange = (e) => {
+                let val = e.target.value;
+                if (!val.startsWith('230189')) {
+                    val = '230189';
+                }
+                setFormData(prev => ({ ...prev, glCode: val }));
             };
 
             const handleEmpIdChange = (e) => {
@@ -265,6 +275,8 @@
                             contributionAmt: formData.contributionAmt,
                             eventDate: formData.eventDate,
                             beneficiaryName: formData.beneficiaryName,
+                            ioNo: formData.ioNo,
+                            glCode: formData.glCode,
                             notes: formData.notes
                         })
                     });
@@ -285,6 +297,8 @@
                         contributionAmt: '',
                         eventDate: '',
                         beneficiaryName: '',
+                        ioNo: '',
+                        glCode: '230189',
                         notes: ''
                     });
                 } catch (err) {
@@ -294,7 +308,6 @@
                 }
             };
 
-            // POINT 1 FIX: Clean, isolated print handler
             const handleDirectPrint = () => {
                 const printContainer = document.getElementById('print-root');
                 const receiptElement = document.getElementById('printable-receipt');
@@ -614,6 +627,15 @@
                                                         <strong style={{ color: '#475569' }}>Beneficiary Name:</strong> {pdfData.beneficiaryName || '-'}
                                                     </td>
                                                 </tr>
+                                                {/* REQUIREMENT 1: IO No & GL Code Captured in PDF before Notes */}
+                                                <tr>
+                                                    <td style={{ padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
+                                                        <strong style={{ color: '#475569' }}>IO No:</strong> {pdfData.ioNo || '-'}
+                                                    </td>
+                                                    <td style={{ padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
+                                                        <strong style={{ color: '#475569' }}>GL Code:</strong> {pdfData.glCode || '230189'}
+                                                    </td>
+                                                </tr>
                                             </tbody>
                                         </table>
 
@@ -622,7 +644,7 @@
                                             <strong style={{ color: '#334155' }}>Notes:</strong> <span style={{ color: '#0f172a' }}>{pdfData.notes ? pdfData.notes : '-'}</span>
                                         </div>
 
-                                        {/* POINT 3 FIX: EXACT DECLARATION TEXT */}
+                                        {/* Declaration Box */}
                                         <div style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', padding: '14px 16px', borderRadius: '6px', marginBottom: '24px' }}>
                                             <h4 style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#1e293b', margin: '0 0 4px 0' }}>Declaration</h4>
                                             <p style={{ fontSize: '11px', color: '#334155', fontStyle: 'italic', margin: 0, lineHeight: '1.5' }}>
@@ -630,7 +652,7 @@
                                             </p>
                                         </div>
 
-                                        {/* POINT 2 FIX: SINGLE SIGNATURE BLOCK LOCATED DIRECTLY ABOVE BOTTOM */}
+                                        {/* Signatures */}
                                         <div style={{ paddingTop: '50px', paddingBottom: '10px' }}>
                                             <table style={{ width: '100%' }}>
                                                 <tbody>
@@ -673,6 +695,7 @@
                                 </button>
                             </div>
 
+                            {/* ROW 1 - REQUIREMENT 2: Removed * and added # to Full Name #, Department #, Email Address # */}
                             <div className="flex flex-wrap items-center gap-3">
                                 <div className="w-full sm:w-32">
                                     <label className="block text-sm font-bold text-slate-200 mb-1">EMP ID *</label>
@@ -690,7 +713,7 @@
                                 </div>
 
                                 <div className="w-full sm:flex-1 min-w-[170px]">
-                                    <label className="block text-sm font-bold text-slate-200 mb-1">Full Name *</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Full Name #</label>
                                     <input 
                                         type="text" 
                                         name="fullName" 
@@ -702,7 +725,7 @@
                                 </div>
 
                                 <div className="w-full sm:flex-1 min-w-[160px]">
-                                    <label className="block text-sm font-bold text-slate-200 mb-1">Department</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Department #</label>
                                     <input 
                                         type="text" 
                                         name="department" 
@@ -714,7 +737,7 @@
                                 </div>
 
                                 <div className="w-full sm:flex-[1.2] min-w-[210px]">
-                                    <label className="block text-sm font-bold text-slate-200 mb-1">Email Address *</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Email Address #</label>
                                     <input 
                                         type="email" 
                                         name="email" 
@@ -726,6 +749,7 @@
                                 </div>
                             </div>
 
+                            {/* ROW 2 */}
                             <div className="flex flex-wrap items-center gap-3 pt-1">
                                 <div className="w-full sm:flex-1 min-w-[180px]">
                                     <label className="block text-sm font-bold text-slate-200 mb-1">Location</label>
@@ -776,6 +800,7 @@
                                 </div>
                             </div>
 
+                            {/* ROW 3 */}
                             <div className="flex flex-wrap items-center gap-3 pt-1">
                                 <div className="w-full sm:flex-1 min-w-[180px]">
                                     <label className="block text-sm font-bold text-slate-200 mb-1">Contribution Amt</label>
@@ -816,15 +841,46 @@
                                 </div>
                             </div>
 
+                            {/* REQUIREMENT 1: IO No and GL Code fields added right above Notes */}
+                            <div className="flex flex-wrap items-center gap-3 pt-1">
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">IO No</label>
+                                    <input 
+                                        type="text" 
+                                        name="ioNo" 
+                                        value={formData.ioNo} 
+                                        onChange={handleChange} 
+                                        placeholder="Optional IO No"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm"
+                                    />
+                                </div>
+
+                                <div className="w-full sm:flex-1 min-w-[180px]">
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">GL Code</label>
+                                    <input 
+                                        type="text" 
+                                        name="glCode" 
+                                        value={formData.glCode} 
+                                        onChange={handleGlCodeChange} 
+                                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm font-mono"
+                                    />
+                                </div>
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-bold text-slate-200 mb-1">Notes</label>
                                 <textarea name="notes" value={formData.notes} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm" rows="2"></textarea>
                             </div>
 
+                            {/* REQUIREMENT 2: Message placed directly below Notes */}
+                            <p className="text-xs text-amber-400/90 font-medium italic pt-0.5">
+                                # Data will be captured from server, In case not updated then update it
+                            </p>
+
                             <button 
                                 type="submit" 
                                 disabled={isSyncing}
-                                className="w-full bg-cyan-600 hover:bg-cyan-500 font-bold py-2.5 rounded transition-all text-white shadow-lg disabled:opacity-50 text-sm"
+                                className="w-full bg-cyan-600 hover:bg-cyan-500 font-bold py-2.5 rounded transition-all text-white shadow-lg disabled:opacity-50 text-sm mt-2"
                             >
                                 {isSyncing ? 'Syncing to Sheet...' : 'Submit & Sync Data'}
                             </button>
@@ -854,6 +910,8 @@
                                             <th className="px-4 py-3">Amt</th>
                                             <th className="px-4 py-3">Date</th>
                                             <th className="px-4 py-3">Beneficiary</th>
+                                            <th className="px-4 py-3">IO No</th>
+                                            <th className="px-4 py-3">GL Code</th>
                                             <th className="px-4 py-3 text-center">Action</th>
                                         </tr>
                                     </thead>
@@ -872,6 +930,8 @@
                                                 <td className="px-4 py-3 font-mono">{rec.contributionAmt || '-'}</td>
                                                 <td className="px-4 py-3 font-mono text-xs">{rec.eventDate || '-'}</td>
                                                 <td className="px-4 py-3">{rec.beneficiaryName || '-'}</td>
+                                                <td className="px-4 py-3">{rec.ioNo || '-'}</td>
+                                                <td className="px-4 py-3 font-mono">{rec.glCode || '230189'}</td>
                                                 <td className="px-4 py-3 text-center">
                                                     <button 
                                                         type="button"

@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Entry Portal</title>
+    <title>Sales Promotion Claim Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- html2pdf Library for Direct Download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* CSS Print Setup for Perfect Native Printing/PDF */
+        /* CSS Print Rules */
         @media print {
             body * {
                 visibility: hidden !important;
@@ -93,22 +95,37 @@
                 setTimeout(() => setToast(''), 4500);
             };
 
-            const cleanDDMMYY = (rawDateStr) => {
-                if (!rawDateStr) return '';
-                const cleaned = rawDateStr.replace(/[^0-9]/g, '');
-                if (cleaned.length === 8) {
-                    return `${cleaned.slice(0, 4)}${cleaned.slice(6, 8)}`;
-                }
-                return cleaned;
+            // Strict DD.MM.YY Format Checker
+            const isValidDDMMYY = (dateStr) => {
+                const regex = /^(0[1-9]|[12][0-9]|3[01])\.(0[1-9]|1[0-2])\.\d{2}$/;
+                return regex.test(dateStr);
             };
 
-            const generateRefNumber = (empIdVal, eventDateVal, eventTypeVal, existingRecords) => {
+            // Converts DD.MM.YY string (12.05.26) directly to 6-digit string (120526)
+            const cleanDDMMYY = (rawDateStr) => {
+                if (!rawDateStr) return '';
+                return rawDateStr.replace(/\./g, '');
+            };
+
+            // Auto-formatter for date input as user types
+            const handleEventDateChange = (e) => {
+                let val = e.target.value.replace(/[^0-9.]/g, ''); // allow digits and dot only
+                
+                // Auto-insert dots if user types 6 plain digits
+                if (/^\d{6}$/.test(val)) {
+                    val = `${val.slice(0, 2)}.${val.slice(2, 4)}.${val.slice(4, 6)}`;
+                }
+
+                setFormData(prev => ({ ...prev, eventDate: val }));
+            };
+
+            // Duplicate Control Check for Ref Number (DDMMYY, DDMMYY-1, DDMMYY-2)
+            const generateRefNumber = (empIdVal, eventDateVal, existingRecords) => {
                 const baseFormattedDate = cleanDDMMYY(eventDateVal);
 
                 const duplicateCount = existingRecords.filter(rec => 
                     rec.empId === empIdVal &&
-                    rec.eventDate === eventDateVal && 
-                    rec.eventType === eventTypeVal
+                    cleanDDMMYY(rec.eventDate) === baseFormattedDate
                 ).length;
 
                 return duplicateCount === 0 ? baseFormattedDate : `${baseFormattedDate}-${duplicateCount}`;
@@ -199,9 +216,16 @@
                     return;
                 }
 
+                // Strict DD.MM.YY Validation Check
+                if (!isValidDDMMYY(formData.eventDate)) {
+                    showToast('❌ Invalid Date Format! Please enter in DD.MM.YY format (e.g. 12.05.26)');
+                    return;
+                }
+
+                // Rule 1: Strict duplicate block (Same EMP ID + Same Date + Same Beneficiary)
                 const isStrictDuplicate = records.some(rec => 
                     rec.empId === formData.empId &&
-                    rec.eventDate === formData.eventDate &&
+                    cleanDDMMYY(rec.eventDate) === cleanDDMMYY(formData.eventDate) &&
                     rec.beneficiaryName.trim().toLowerCase() === formData.beneficiaryName.trim().toLowerCase() &&
                     rec.beneficiaryName.trim() !== ""
                 );
@@ -211,9 +235,10 @@
                     return;
                 }
 
+                // Rule 2: Attendance warning modal (Same EMP ID + Same Date)
                 const hasSameDateEntry = records.some(rec => 
                     rec.empId === formData.empId &&
-                    rec.eventDate === formData.eventDate
+                    cleanDDMMYY(rec.eventDate) === cleanDDMMYY(formData.eventDate)
                 );
 
                 if (hasSameDateEntry) {
@@ -233,7 +258,6 @@
                 const refNumber = generateRefNumber(
                     formData.empId,
                     formData.eventDate,
-                    formData.eventType,
                     records
                 );
 
@@ -291,8 +315,21 @@
                 }
             };
 
-            const triggerNativePrint = () => {
+            const handleDirectPrint = () => {
                 window.print();
+            };
+
+            const handleSavePDF = () => {
+                if (!pdfData) return;
+                const element = document.getElementById('printable-receipt');
+                const opt = {
+                    margin:       0.3,
+                    filename:     `Claim_Form_${pdfData.empId}_${pdfData.refNumber || pdfData.id}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true },
+                    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                };
+                html2pdf().set(opt).from(element).save();
             };
 
             const confirmClearRecords = () => {
@@ -378,7 +415,7 @@
                 <div className="max-w-4xl mx-auto p-6">
                     <div className="flex justify-between items-center mb-6 no-print">
                         <h1 className="text-2xl font-bold text-cyan-400">
-                            Data Entry & Google Sheet Sync
+                            <span className="underline decoration-cyan-400 underline-offset-8">Sales Promotion claim</span>
                         </h1>
                         <div className="flex items-center space-x-3">
                             {records.length > 0 && (
@@ -493,32 +530,41 @@
                     {/* RECEIPT PREVIEW MODAL */}
                     {pdfData && (
                         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto no-print">
-                            <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] flex flex-col">
+                            <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 shadow-2xl flex flex-col my-auto">
                                 
-                                {/* TOP BUTTON BAR ALWAYS VISIBLE */}
-                                <div className="flex justify-between items-center border-b border-slate-700 pb-3 shrink-0">
-                                    <h3 className="text-lg font-bold text-cyan-400">Printable Submission Receipt</h3>
-                                    <div className="flex space-x-2">
+                                {/* 3 SEPARATED ACTION BUTTONS */}
+                                <div className="flex justify-between items-center border-b border-slate-700 pb-3 mb-4 shrink-0">
+                                    <h3 className="text-base font-bold text-cyan-400">Submission Receipt</h3>
+                                    <div className="flex items-center space-x-2">
                                         <button 
                                             type="button"
-                                            onClick={triggerNativePrint}
-                                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded transition-all shadow flex items-center space-x-1"
+                                            onClick={handleDirectPrint}
+                                            className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-3 py-1.5 rounded transition-all shadow flex items-center space-x-1"
                                         >
                                             <span>🖨️</span>
-                                            <span>Print / Save as PDF</span>
+                                            <span>Print</span>
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={handleSavePDF}
+                                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded transition-all shadow flex items-center space-x-1"
+                                        >
+                                            <span>📥</span>
+                                            <span>Save PDF</span>
                                         </button>
                                         <button 
                                             type="button"
                                             onClick={() => setPdfData(null)}
-                                            className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold px-3 py-2 rounded"
+                                            className="bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold px-3 py-1.5 rounded transition-all shadow flex items-center space-x-1"
                                         >
-                                            Close
+                                            <span>❌</span>
+                                            <span>Close</span>
                                         </button>
                                     </div>
                                 </div>
 
                                 {/* RECEIPT BODY CONTAINER */}
-                                <div className="overflow-y-auto pr-1">
+                                <div className="overflow-y-auto max-h-[75vh] pr-1">
                                     <div id="printable-receipt" style={{ backgroundColor: '#ffffff', color: '#1e293b', padding: '32px', fontFamily: 'Arial, sans-serif', fontSize: '13px', borderRadius: '8px' }}>
                                         
                                         {/* Header */}
@@ -526,7 +572,9 @@
                                             <tbody>
                                                 <tr>
                                                     <td style={{ verticalAlign: 'top' }}>
-                                                        <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>DATA ENTRY & CLAIM SUBMISSION FORM</h2>
+                                                        <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: '#0f172a', margin: 0, letterSpacing: '0.2px' }}>
+                                                            SALES PROMOTION CLAIM SUBMISSION FORM
+                                                        </h2>
                                                         <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', margin: 0 }}>Submitted On: {pdfData.timestamp}</p>
                                                     </td>
                                                     <td style={{ textAlign: 'right', verticalAlign: 'top' }}>
@@ -590,15 +638,15 @@
                                         </div>
 
                                         {/* Declaration Box */}
-                                        <div style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', padding: '14px 16px', borderRadius: '6px', marginBottom: '40px' }}>
+                                        <div style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', padding: '14px 16px', borderRadius: '6px', marginBottom: '35px' }}>
                                             <h4 style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#1e293b', margin: '0 0 4px 0' }}>Declaration</h4>
                                             <p style={{ fontSize: '11px', color: '#334155', fontStyle: 'italic', margin: 0, lineHeight: '1.5' }}>
-                                                I hereby declare that this event claim has not been claimed previously...
+                                                I hereby declare that I have neither claimed this claim previously nor will I claim it again in the future. I further affirm that this claim is not a duplicate claim.
                                             </p>
                                         </div>
 
                                         {/* Signatures */}
-                                        <div style={{ paddingTop: '20px', paddingBottom: '10px' }}>
+                                        <div style={{ paddingTop: '30px', paddingBottom: '10px' }}>
                                             <table style={{ width: '100%' }}>
                                                 <tbody>
                                                     <tr>
@@ -757,13 +805,13 @@
                                 </div>
 
                                 <div className="w-full sm:flex-1 min-w-[180px]">
-                                    <label className="block text-sm font-bold text-slate-200 mb-1">Event Date *</label>
+                                    <label className="block text-sm font-bold text-slate-200 mb-1">Event Date (DD.MM.YY) *</label>
                                     <input 
                                         type="text" 
                                         name="eventDate" 
                                         value={formData.eventDate} 
-                                        onChange={handleChange} 
-                                        placeholder="DD.MM.YY"
+                                        onChange={handleEventDateChange} 
+                                        placeholder="12.05.26"
                                         maxLength={8}
                                         required
                                         className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm font-mono tracking-wider"

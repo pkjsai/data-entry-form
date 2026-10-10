@@ -36,7 +36,7 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        const API_URL = "https://script.google.com/macros/s/AKfycbwegeAMEVGmm3S85ObAuhq7n2x_20oFENZ4FPIxkfbFkxVWUnDMbuAW8-lfcQl62sKGvg/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbyz6fIiCfvBgXUunu0PhJm40Sy6WIstpYLFCfvvb4DVZcLuEH5sa0V6r6WXM11ZjL1UEQ/exec";
 
         function App() {
             // Auth States
@@ -119,19 +119,13 @@
                 return duplicateCount === 0 ? baseFormattedDate : `${baseFormattedDate}-${duplicateCount}`;
             };
 
-            // HELPER TO POST DATA TO GOOGLE APPS SCRIPT WITHOUT CORS ISSUES
-            const postToAppsScript = async (payload) => {
-                const body = new URLSearchParams();
-                for (const key in payload) {
-                    body.append(key, payload[key]);
-                }
-
-                const res = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: body
+            // RELIABLE REQUEST HELPER USING URL PARAMETERS
+            const sendRequest = async (params) => {
+                const query = new URLSearchParams(params).toString();
+                const res = await fetch(`${API_URL}?${query}`, {
+                    method: 'GET',
+                    redirect: 'follow'
                 });
-
                 return await res.json();
             };
 
@@ -141,10 +135,10 @@
                 setAuthError('');
 
                 try {
-                    const data = await postToAppsScript({
+                    const data = await sendRequest({
                         action: 'login',
-                        userId: credentials.userId,
-                        password: credentials.password
+                        userId: credentials.userId.trim(),
+                        password: credentials.password.trim()
                     });
 
                     if (data.status === 'success') {
@@ -156,7 +150,7 @@
                         setAuthError(`❌ ${data.message || 'Login failed.'}`);
                     }
                 } catch (err) {
-                    setAuthError('❌ Connection failed. Check network or deployment access.');
+                    setAuthError('❌ Request error. Ensure deployment access is set to "Anyone".');
                 } finally {
                     setIsAuthenticating(false);
                 }
@@ -194,9 +188,9 @@
 
                 setIsFetchingEmp(true);
                 try {
-                    const data = await postToAppsScript({
+                    const data = await sendRequest({
                         action: 'getEmpName',
-                        empId: formData.empId
+                        empId: formData.empId.trim()
                     });
 
                     if (data.status === 'success') {
@@ -270,7 +264,7 @@
                 };
 
                 try {
-                    await postToAppsScript({
+                    await sendRequest({
                         action: 'submit',
                         timestamp: timestamp,
                         empId: formData.empId,

@@ -9,8 +9,34 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- PDF Generation Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        /* CSS Print Setup for Perfect PDF Generation */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printable-receipt, #printable-receipt * {
+                visibility: visible;
+            }
+            #printable-receipt {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                min-height: 95vh;
+                background: white !important;
+                color: black !important;
+                padding: 24px !important;
+                box-shadow: none !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
     <div id="root"></div>
@@ -50,15 +76,11 @@
             const [sameDateWarningModal, setSameDateWarningModal] = useState(false);
             const [pdfData, setPdfData] = useState(null);
 
-            // Maintain session state on refresh
             useEffect(() => {
                 const sessionUser = sessionStorage.getItem('portal_user_id');
-                if (sessionUser) {
-                    setIsAuthenticated(true);
-                }
+                if (sessionUser) setIsAuthenticated(true);
             }, []);
 
-            // Local browser storage for record isolation
             useEffect(() => {
                 const saved = localStorage.getItem('user_private_records');
                 if (saved) {
@@ -75,7 +97,6 @@
                 setTimeout(() => setToast(''), 4500);
             };
 
-            // Helper: Format eventDate string to DDMMYY
             const cleanDDMMYY = (rawDateStr) => {
                 if (!rawDateStr) return '';
                 const cleaned = rawDateStr.replace(/[^0-9]/g, '');
@@ -85,7 +106,6 @@
                 return cleaned;
             };
 
-            // Control check based on EMP ID + Event Date + Event Type
             const generateRefNumber = (empIdVal, eventDateVal, eventTypeVal, existingRecords) => {
                 const baseFormattedDate = cleanDDMMYY(eventDateVal);
 
@@ -95,14 +115,9 @@
                     rec.eventType === eventTypeVal
                 ).length;
 
-                if (duplicateCount === 0) {
-                    return baseFormattedDate;
-                } else {
-                    return `${baseFormattedDate}-${duplicateCount}`;
-                }
+                return duplicateCount === 0 ? baseFormattedDate : `${baseFormattedDate}-${duplicateCount}`;
             };
 
-            // Login Logic
             const handleLogin = async (e) => {
                 e.preventDefault();
                 setIsAuthenticating(true);
@@ -188,7 +203,6 @@
                     return;
                 }
 
-                // RULE 1: STRICT BLOCK - Same EMP ID + Same Event Date + Same Beneficiary Name
                 const isStrictDuplicate = records.some(rec => 
                     rec.empId === formData.empId &&
                     rec.eventDate === formData.eventDate &&
@@ -201,7 +215,6 @@
                     return;
                 }
 
-                // RULE 2: WARNING CHECK - Same EMP ID + Same Event Date
                 const hasSameDateEntry = records.some(rec => 
                     rec.empId === formData.empId &&
                     rec.eventDate === formData.eventDate
@@ -282,19 +295,8 @@
                 }
             };
 
-            // Download PDF with layout preservation settings
-            const downloadPDF = () => {
-                if (!pdfData) return;
-                const element = document.getElementById('pdf-content');
-                const opt = {
-                    margin:       [0.3, 0.4, 0.3, 0.4],
-                    filename:     `Claim_Form_${pdfData.empId}_${pdfData.refNumber || pdfData.id}.pdf`,
-                    image:        { type: 'jpeg', quality: 1.0 },
-                    html2canvas:  { scale: 3, useCORS: true, logging: false },
-                    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-                };
-
-                html2pdf().set(opt).from(element).save();
+            const triggerNativePrint = () => {
+                window.print();
             };
 
             const confirmClearRecords = () => {
@@ -378,9 +380,9 @@
 
             return (
                 <div className="max-w-4xl mx-auto p-6">
-                    <div className="flex justify-between items-center mb-6">
+                    <div className="flex justify-between items-center mb-6 no-print">
                         <h1 className="text-2xl font-bold text-cyan-400">
-                            Employee Sales Promotion submission form
+                            Data Entry & Google Sheet Sync
                         </h1>
                         <div className="flex items-center space-x-3">
                             {records.length > 0 && (
@@ -416,13 +418,13 @@
                     </div>
 
                     {toast && (
-                        <div className="fixed top-5 right-5 bg-slate-800 border border-cyan-500 text-slate-100 px-4 py-3 rounded shadow-2xl z-50 animate-bounce text-sm">
+                        <div className="fixed top-5 right-5 bg-slate-800 border border-cyan-500 text-slate-100 px-4 py-3 rounded shadow-2xl z-50 animate-bounce text-sm no-print">
                             {toast}
                         </div>
                     )}
 
                     {showConfirmModal && (
-                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
                             <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full shadow-2xl space-y-4">
                                 <div className="flex items-center space-x-3">
                                     <div className="p-2 bg-rose-500/20 text-rose-400 rounded-lg">
@@ -454,7 +456,7 @@
                     )}
 
                     {sameDateWarningModal && (
-                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
                             <div className="bg-slate-800 border border-amber-500/60 rounded-xl p-6 max-w-md w-full shadow-2xl space-y-4">
                                 <div className="flex items-center space-x-3">
                                     <div className="p-2 bg-amber-500/20 text-amber-400 rounded-lg">
@@ -492,20 +494,20 @@
                         </div>
                     )}
 
-                    {/* PRINTABLE PDF MODAL WITH PDF-SAFE TABLE LAYOUT */}
+                    {/* PRINTABLE PDF RECEIPT MODAL */}
                     {pdfData && (
-                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto no-print">
                             <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 shadow-2xl">
                                 <div className="flex justify-between items-center border-b border-slate-700 pb-3">
                                     <h3 className="text-lg font-bold text-cyan-400">Printable Submission Receipt</h3>
                                     <div className="flex space-x-2">
                                         <button 
                                             type="button"
-                                            onClick={downloadPDF}
-                                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded transition-all shadow flex items-center space-x-1"
+                                            onClick={triggerNativePrint}
+                                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded transition-all shadow flex items-center space-x-1"
                                         >
-                                            <span>📥</span>
-                                            <span>Download PDF</span>
+                                            <span>🖨️</span>
+                                            <span>Print / Save as PDF</span>
                                         </button>
                                         <button 
                                             type="button"
@@ -517,101 +519,107 @@
                                     </div>
                                 </div>
 
-                                {/* PRINTABLE EXPORT AREA (Explicit Inline Table Formatting for html2pdf) */}
-                                <div id="pdf-content" style={{ backgroundColor: '#ffffff', color: '#1e293b', padding: '30px', fontFamily: 'sans-serif', fontSize: '12px' }}>
+                                {/* PDF RECEIPT VIEW CONTAINER */}
+                                <div id="printable-receipt" style={{ backgroundColor: '#ffffff', color: '#1e293b', padding: '32px', fontFamily: 'Arial, sans-serif', fontSize: '13px', borderRadius: '8px', minHeight: '680px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                                     
-                                    {/* Header Section */}
-                                    <table style={{ width: '100%', borderBottom: '2px solid #0284c7', paddingBottom: '12px', marginBottom: '20px' }}>
-                                        <tr>
-                                            <td style={{ verticalAlign: 'top' }}>
-                                                <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>SALES PROMOTION CLAIM SUBMISSION FORM</h2>
-                                                <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', margin: 0 }}>Submitted On: {pdfData.timestamp}</p>
-                                            </td>
-                                            <td style={{ textAlign: 'right', verticalAlign: 'top' }}>
-                                                <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#0284c7', margin: 0, fontFamily: 'monospace' }}>
-                                                    REF NO: {pdfData.refNumber || `#${pdfData.id}`}
-                                                </p>
-                                            </td>
-                                        </tr>
-                                    </table>
+                                    <div>
+                                        {/* Header */}
+                                        <table style={{ width: '100%', borderBottom: '2px solid #0284c7', paddingBottom: '12px', marginBottom: '24px' }}>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ verticalAlign: 'top' }}>
+                                                        <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>DATA ENTRY & CLAIM SUBMISSION FORM</h2>
+                                                        <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', margin: 0 }}>Submitted On: {pdfData.timestamp}</p>
+                                                    </td>
+                                                    <td style={{ textAlign: 'right', verticalAlign: 'top' }}>
+                                                        <p style={{ fontSize: '15px', fontWeight: 'bold', color: '#0284c7', margin: 0, fontFamily: 'monospace' }}>
+                                                            REF NO: {pdfData.refNumber || `#${pdfData.id}`}
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
 
-                                    {/* Data Grid Section */}
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-                                        <tbody>
-                                            <tr>
-                                                <td style={{ width: '50%', padding: '8px 4px', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <strong style={{ color: '#475569' }}>EMP ID:</strong> <span style={{ color: '#0f172a', fontWeight: '600' }}>{pdfData.empId}</span>
-                                                </td>
-                                                <td style={{ width: '50%', padding: '8px 4px', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <strong style={{ color: '#475569' }}>Full Name:</strong> <span style={{ color: '#0f172a', fontWeight: '600' }}>{pdfData.fullName}</span>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td style={{ padding: '8px 4px', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <strong style={{ color: '#475569' }}>Department:</strong> {pdfData.department || '-'}
-                                                </td>
-                                                <td style={{ padding: '8px 4px', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <strong style={{ color: '#475569' }}>Email:</strong> {pdfData.email}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td style={{ padding: '8px 4px', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <strong style={{ color: '#475569' }}>Location:</strong> {pdfData.location || '-'}
-                                                </td>
-                                                <td style={{ padding: '8px 4px', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <strong style={{ color: '#475569' }}>Event Type:</strong> {pdfData.eventType || '-'}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td style={{ padding: '8px 4px', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <strong style={{ color: '#475569' }}>Beneficiary Category:</strong> {pdfData.beneficiaryCategory || '-'}
-                                                </td>
-                                                <td style={{ padding: '8px 4px', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <strong style={{ color: '#475569' }}>Contribution Amt:</strong> {pdfData.contributionAmt ? `₹${pdfData.contributionAmt}` : '-'}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td style={{ padding: '8px 4px', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <strong style={{ color: '#475569' }}>Event Date:</strong> {pdfData.eventDate || '-'}
-                                                </td>
-                                                <td style={{ padding: '8px 4px', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <strong style={{ color: '#475569' }}>Beneficiary Name:</strong> {pdfData.beneficiaryName || '-'}
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
+                                        {/* Fields Layout */}
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ width: '50%', padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
+                                                        <strong style={{ color: '#475569' }}>EMP ID:</strong> <span style={{ color: '#0f172a', fontWeight: 'bold' }}>{pdfData.empId}</span>
+                                                    </td>
+                                                    <td style={{ width: '50%', padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
+                                                        <strong style={{ color: '#475569' }}>Full Name:</strong> <span style={{ color: '#0f172a', fontWeight: 'bold' }}>{pdfData.fullName}</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
+                                                        <strong style={{ color: '#475569' }}>Department:</strong> {pdfData.department || '-'}
+                                                    </td>
+                                                    <td style={{ padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
+                                                        <strong style={{ color: '#475569' }}>Email:</strong> {pdfData.email}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
+                                                        <strong style={{ color: '#475569' }}>Location:</strong> {pdfData.location || '-'}
+                                                    </td>
+                                                    <td style={{ padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
+                                                        <strong style={{ color: '#475569' }}>Event Type:</strong> {pdfData.eventType || '-'}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
+                                                        <strong style={{ color: '#475569' }}>Beneficiary Category:</strong> {pdfData.beneficiaryCategory || '-'}
+                                                    </td>
+                                                    <td style={{ padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
+                                                        <strong style={{ color: '#475569' }}>Contribution Amt:</strong> {pdfData.contributionAmt ? `₹${pdfData.contributionAmt}` : '-'}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
+                                                        <strong style={{ color: '#475569' }}>Event Date:</strong> {pdfData.eventDate || '-'}
+                                                    </td>
+                                                    <td style={{ padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
+                                                        <strong style={{ color: '#475569' }}>Beneficiary Name:</strong> {pdfData.beneficiaryName || '-'}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
 
-                                    {/* Notes Section */}
-                                    {pdfData.notes && (
-                                        <div style={{ backgroundColor: '#f8fafc', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', marginBottom: '20px' }}>
-                                            <strong style={{ color: '#334155' }}>Notes:</strong> {pdfData.notes}
+                                        {/* Notes Section - Placed Before Declaration */}
+                                        <div style={{ backgroundColor: '#f8fafc', padding: '12px 14px', border: '1px solid #cbd5e1', borderRadius: '6px', marginBottom: '20px' }}>
+                                            <strong style={{ color: '#334155' }}>Notes:</strong> <span style={{ color: '#0f172a' }}>{pdfData.notes ? pdfData.notes : '-'}</span>
                                         </div>
-                                    )}
 
-                                    {/* Declaration Box */}
-                                    <div style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', padding: '12px 14px', borderRadius: '6px', marginBottom: '40px' }}>
-                                        <h4 style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#1e293b', margin: '0 0 4px 0' }}>Declaration</h4>
-                                        <p style={{ fontSize: '11px', color: '#334155', fontStyle: 'italic', margin: 0, lineHeight: '1.4' }}>
-                                            I hereby declare that this event claim has not been claimed previously....
-                                        </p>
+                                        {/* Declaration Statement */}
+                                        <div style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', padding: '14px 16px', borderRadius: '6px', marginBottom: '30px' }}>
+                                            <h4 style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#1e293b', margin: '0 0 4px 0' }}>Declaration</h4>
+                                            <p style={{ fontSize: '11px', color: '#334155', fontStyle: 'italic', margin: 0, lineHeight: '1.5' }}>
+                                                I hereby declare that I have neither claimed this claim previously nor will I claim it again in the future. I further affirm that this claim is not a duplicate claim.
+                                            </p>
+                                        </div>
                                     </div>
 
-                                    {/* User & Manager Signatures Table */}
-                                    <table style={{ width: '100%', marginTop: '50px' }}>
-                                        <tr>
-                                            <td style={{ width: '45%', textAlign: 'center', verticalAlign: 'bottom' }}>
-                                                <div style={{ borderBottom: '1px solid #64748b', marginBottom: '6px' }}></div>
-                                                <p style={{ margin: '0', fontWeight: 'bold', color: '#0f172a', fontSize: '11px' }}>User Signature</p>
-                                                <p style={{ margin: '2px 0 0 0', color: '#64748b', fontSize: '10px' }}>({pdfData.fullName})</p>
-                                            </td>
-                                            <td style={{ width: '10%' }}></td>
-                                            <td style={{ width: '45%', textAlign: 'center', verticalAlign: 'bottom' }}>
-                                                <div style={{ borderBottom: '1px solid #64748b', marginBottom: '6px' }}></div>
-                                                <p style={{ margin: '0', fontWeight: 'bold', color: '#0f172a', fontSize: '11px' }}>Manager Signature</p>
-                                                <p style={{ margin: '2px 0 0 0', color: '#64748b', fontSize: '10px' }}>(Verification & Approval)</p>
-                                            </td>
-                                        </tr>
-                                    </table>
+                                    {/* User & Manager Signature Lines - Positioned Near End of PDF Page */}
+                                    <div style={{ marginTop: 'auto', paddingTop: '40px', paddingBottom: '10px' }}>
+                                        <table style={{ width: '100%' }}>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ width: '45%', textAlign: 'center', verticalAlign: 'bottom' }}>
+                                                        <div style={{ borderBottom: '1.5px solid #475569', marginBottom: '8px' }}></div>
+                                                        <p style={{ margin: '0', fontWeight: 'bold', color: '#0f172a', fontSize: '12px' }}>User Signature</p>
+                                                        <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '11px' }}>({pdfData.fullName})</p>
+                                                    </td>
+                                                    <td style={{ width: '10%' }}></td>
+                                                    <td style={{ width: '45%', textAlign: 'center', verticalAlign: 'bottom' }}>
+                                                        <div style={{ borderBottom: '1.5px solid #475569', marginBottom: '8px' }}></div>
+                                                        <p style={{ margin: '0', fontWeight: 'bold', color: '#0f172a', fontSize: '12px' }}>Manager Signature</p>
+                                                        <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '11px' }}>(Verification & Approval)</p>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
 
                                 </div>
                             </div>
@@ -619,7 +627,7 @@
                     )}
 
                     {/* FORM CONTAINER */}
-                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl mb-8">
+                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl mb-8 no-print">
                         <form onSubmit={handleSubmit} className="space-y-4">
                             
                             <div className="flex items-center justify-between">
@@ -794,7 +802,7 @@
 
                     {/* SUBMITTED RECORDS TABLE */}
                     {records.length > 0 && (
-                        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
+                        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl no-print">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-lg font-bold text-slate-200">My Submitted Records</h2>
                                 <span className="text-xs text-slate-400">Private to your browser</span>

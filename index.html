@@ -413,10 +413,19 @@
 
             return (
                 <div className="max-w-4xl mx-auto p-6">
-                    <div className="flex justify-between items-center mb-6 no-print">
-                        <h1 className="text-2xl font-bold text-cyan-400">
-                            <span className="underline decoration-cyan-400 underline-offset-8">Sales Promotion claim</span>
-                        </h1>
+                    {/* ENHANCED TOP HEADER SECTION */}
+                    <div className="flex justify-between items-center mb-6 no-print flex-wrap gap-4">
+                        {/* ATTRACTIVE HEADING DESIGN */}
+                        <div className="relative group">
+                            <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-300"></div>
+                            <div className="relative px-4 py-2 bg-slate-800/90 backdrop-blur-md border border-cyan-500/40 rounded-xl shadow-lg flex items-center space-x-2.5">
+                                <span className="text-lg">🏷️</span>
+                                <h1 className="text-xl sm:text-2xl font-extrabold tracking-wide bg-gradient-to-r from-cyan-300 via-cyan-100 to-blue-400 bg-clip-text text-transparent uppercase">
+                                    Sales Promotion Claim
+                                </h1>
+                            </div>
+                        </div>
+
                         <div className="flex items-center space-x-3">
                             {records.length > 0 && (
                                 <button 

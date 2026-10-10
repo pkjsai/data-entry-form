@@ -627,7 +627,6 @@
                                                         <strong style={{ color: '#475569' }}>Beneficiary Name:</strong> {pdfData.beneficiaryName || '-'}
                                                     </td>
                                                 </tr>
-                                                {/* REQUIREMENT 1: IO No & GL Code Captured in PDF before Notes */}
                                                 <tr>
                                                     <td style={{ padding: '10px 6px', borderBottom: '1px solid #e2e8f0' }}>
                                                         <strong style={{ color: '#475569' }}>IO No:</strong> {pdfData.ioNo || '-'}
@@ -652,8 +651,15 @@
                                             </p>
                                         </div>
 
+                                        {/* REQUEST 2: SAP Document No line after Declaration with skipped rows */}
+                                        <div style={{ marginTop: '40px', marginBottom: '30px', paddingLeft: '4px' }}>
+                                            <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', margin: 0 }}>
+                                                SAP Document No: <span style={{ borderBottom: '1px solid #94a3b8', display: 'inline-block', width: '220px', marginLeft: '8px' }}>&nbsp;</span>
+                                            </p>
+                                        </div>
+
                                         {/* Signatures */}
-                                        <div style={{ paddingTop: '50px', paddingBottom: '10px' }}>
+                                        <div style={{ paddingTop: '30px', paddingBottom: '10px' }}>
                                             <table style={{ width: '100%' }}>
                                                 <tbody>
                                                     <tr>
@@ -695,7 +701,7 @@
                                 </button>
                             </div>
 
-                            {/* ROW 1 - REQUIREMENT 2: Removed * and added # to Full Name #, Department #, Email Address # */}
+                            {/* ROW 1 */}
                             <div className="flex flex-wrap items-center gap-3">
                                 <div className="w-full sm:w-32">
                                     <label className="block text-sm font-bold text-slate-200 mb-1">EMP ID *</label>
@@ -737,6 +743,10 @@
                                 </div>
 
                                 <div className="w-full sm:flex-[1.2] min-w-[210px]">
+                                    {/* REQUEST 1: Text message shifted directly above Email Address */}
+                                    <p className="text-[11px] text-amber-400 font-medium italic mb-1 leading-tight">
+                                        # Data will be captured from server, In case not updated then update it
+                                    </p>
                                     <label className="block text-sm font-bold text-slate-200 mb-1">Email Address #</label>
                                     <input 
                                         type="email" 
@@ -841,7 +851,7 @@
                                 </div>
                             </div>
 
-                            {/* REQUIREMENT 1: IO No and GL Code fields added right above Notes */}
+                            {/* ROW 4 */}
                             <div className="flex flex-wrap items-center gap-3 pt-1">
                                 <div className="w-full sm:flex-1 min-w-[180px]">
                                     <label className="block text-sm font-bold text-slate-200 mb-1">IO No</label>
@@ -871,11 +881,6 @@
                                 <label className="block text-sm font-bold text-slate-200 mb-1">Notes</label>
                                 <textarea name="notes" value={formData.notes} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-sm" rows="2"></textarea>
                             </div>
-
-                            {/* REQUIREMENT 2: Message placed directly below Notes */}
-                            <p className="text-xs text-amber-400/90 font-medium italic pt-0.5">
-                                # Data will be captured from server, In case not updated then update it
-                            </p>
 
                             <button 
                                 type="submit" 

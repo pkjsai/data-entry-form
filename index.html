@@ -119,14 +119,31 @@
                 return duplicateCount === 0 ? baseFormattedDate : `${baseFormattedDate}-${duplicateCount}`;
             };
 
-            // RELIABLE REQUEST HELPER USING URL PARAMETERS
-            const sendRequest = async (params) => {
-                const query = new URLSearchParams(params).toString();
-                const res = await fetch(`${API_URL}?${query}`, {
-                    method: 'GET',
-                    redirect: 'follow'
+            // JSONP HELPER FUNCTION (BYPASSES ALL CORS BLOCKS)
+            const jsonpRequest = (params) => {
+                return new Promise((resolve, reject) => {
+                    const callbackName = 'jsonp_cb_' + Math.round(100000 * Math.random());
+                    window[callbackName] = (data) => {
+                        delete window[callbackName];
+                        if (script.parentNode) script.parentNode.removeChild(script);
+                        resolve(data);
+                    };
+
+                    const queryParams = new URLSearchParams({
+                        ...params,
+                        callback: callbackName
+                    }).toString();
+
+                    const script = document.createElement('script');
+                    script.src = `${API_URL}?${queryParams}`;
+                    script.onerror = () => {
+                        delete window[callbackName];
+                        if (script.parentNode) script.parentNode.removeChild(script);
+                        reject(new Error('JSONP Script load error'));
+                    };
+
+                    document.body.appendChild(script);
                 });
-                return await res.json();
             };
 
             const handleLogin = async (e) => {
@@ -135,7 +152,7 @@
                 setAuthError('');
 
                 try {
-                    const data = await sendRequest({
+                    const data = await jsonpRequest({
                         action: 'login',
                         userId: credentials.userId.trim(),
                         password: credentials.password.trim()
@@ -150,7 +167,7 @@
                         setAuthError(`❌ ${data.message || 'Login failed.'}`);
                     }
                 } catch (err) {
-                    setAuthError('❌ Request error. Ensure deployment access is set to "Anyone".');
+                    setAuthError('❌ Network error. Check deployment permissions in Apps Script.');
                 } finally {
                     setIsAuthenticating(false);
                 }
@@ -188,7 +205,7 @@
 
                 setIsFetchingEmp(true);
                 try {
-                    const data = await sendRequest({
+                    const data = await jsonpRequest({
                         action: 'getEmpName',
                         empId: formData.empId.trim()
                     });
@@ -264,7 +281,7 @@
                 };
 
                 try {
-                    await sendRequest({
+                    await jsonpRequest({
                         action: 'submit',
                         timestamp: timestamp,
                         empId: formData.empId,

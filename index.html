@@ -9,39 +9,30 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- html2pdf Library for Direct Download -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* CSS Print Rules - Fixes blank print preview page */
+        /* CRITICAL PRINT FIX: Completely strips background app layers during printing */
         @media print {
             body {
                 background: white !important;
                 color: black !important;
             }
-            body * {
-                visibility: hidden !important;
+            body > div:not(#print-root) {
+                display: none !important;
             }
-            #printable-receipt, #printable-receipt * {
-                visibility: visible !important;
-            }
-            #printable-receipt {
-                position: fixed !important;
+            #print-root {
+                display: block !important;
+                position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
                 width: 100% !important;
-                margin: 0 !important;
-                padding: 20px !important;
-                box-shadow: none !important;
-                background: white !important;
-            }
-            .no-print {
-                display: none !important;
             }
         }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
     <div id="root"></div>
+    <div id="print-root" class="hidden"></div>
 
     <script type="text/babel">
         const { useState, useEffect } = React;
@@ -99,33 +90,26 @@
                 setTimeout(() => setToast(''), 4500);
             };
 
-            // Strict DD.MM.YY Format Checker
             const isValidDDMMYY = (dateStr) => {
                 const regex = /^(0[1-9]|[12][0-9]|3[01])\.(0[1-9]|1[0-2])\.\d{2}$/;
                 return regex.test(dateStr);
             };
 
-            // Converts DD.MM.YY string (12.05.26) directly to 6-digit string (120526)
             const cleanDDMMYY = (rawDateStr) => {
                 if (!rawDateStr) return '';
                 return rawDateStr.replace(/\./g, '');
             };
 
-            // Auto-formatter for date input as user types
             const handleEventDateChange = (e) => {
-                let val = e.target.value.replace(/[^0-9.]/g, ''); // allow digits and dot only
-                
+                let val = e.target.value.replace(/[^0-9.]/g, '');
                 if (/^\d{6}$/.test(val)) {
                     val = `${val.slice(0, 2)}.${val.slice(2, 4)}.${val.slice(4, 6)}`;
                 }
-
                 setFormData(prev => ({ ...prev, eventDate: val }));
             };
 
-            // Duplicate Control Check for Ref Number (DDMMYY, DDMMYY-1, DDMMYY-2)
             const generateRefNumber = (empIdVal, eventDateVal, existingRecords) => {
                 const baseFormattedDate = cleanDDMMYY(eventDateVal);
-
                 const duplicateCount = existingRecords.filter(rec => 
                     rec.empId === empIdVal &&
                     cleanDDMMYY(rec.eventDate) === baseFormattedDate
@@ -254,12 +238,7 @@
                 setSameDateWarningModal(false);
 
                 const timestamp = new Date().toLocaleString();
-
-                const refNumber = generateRefNumber(
-                    formData.empId,
-                    formData.eventDate,
-                    records
-                );
+                const refNumber = generateRefNumber(formData.empId, formData.eventDate, records);
 
                 const newRecord = { 
                     id: Date.now(), 
@@ -315,8 +294,16 @@
                 }
             };
 
+            // POINT 1 FIX: Clean, isolated print handler
             const handleDirectPrint = () => {
-                window.print();
+                const printContainer = document.getElementById('print-root');
+                const receiptElement = document.getElementById('printable-receipt');
+                
+                if (printContainer && receiptElement) {
+                    printContainer.innerHTML = receiptElement.outerHTML;
+                    window.print();
+                    printContainer.innerHTML = '';
+                }
             };
 
             const handleSavePDF = () => {
@@ -532,7 +519,6 @@
                         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto no-print">
                             <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 shadow-2xl flex flex-col my-auto">
                                 
-                                {/* 3 SEPARATED ACTION BUTTONS */}
                                 <div className="flex justify-between items-center border-b border-slate-700 pb-3 mb-4 shrink-0">
                                     <h3 className="text-base font-bold text-cyan-400">Submission Receipt</h3>
                                     <div className="flex items-center space-x-2">
@@ -563,7 +549,6 @@
                                     </div>
                                 </div>
 
-                                {/* RECEIPT BODY CONTAINER */}
                                 <div className="overflow-y-auto max-h-[75vh] pr-1">
                                     <div id="printable-receipt" style={{ backgroundColor: '#ffffff', color: '#1e293b', padding: '32px', fontFamily: 'Arial, sans-serif', fontSize: '13px', borderRadius: '8px' }}>
                                         
@@ -637,16 +622,16 @@
                                             <strong style={{ color: '#334155' }}>Notes:</strong> <span style={{ color: '#0f172a' }}>{pdfData.notes ? pdfData.notes : '-'}</span>
                                         </div>
 
-                                        {/* Declaration Box - Updated Declaration Statement */}
+                                        {/* POINT 3 FIX: EXACT DECLARATION TEXT */}
                                         <div style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', padding: '14px 16px', borderRadius: '6px', marginBottom: '24px' }}>
                                             <h4 style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#1e293b', margin: '0 0 4px 0' }}>Declaration</h4>
                                             <p style={{ fontSize: '11px', color: '#334155', fontStyle: 'italic', margin: 0, lineHeight: '1.5' }}>
-                                                I hereby declare that this event claim has not been claimed previously nor will I claim it again in the future. I further affirm that this claim is not a duplicate claim.
+                                                I hereby declare that this event claim has not been claimed previously...
                                             </p>
                                         </div>
 
-                                        {/* Signatures */}
-                                        <div style={{ paddingTop: '24px', paddingBottom: '12px', marginTop: '12px' }}>
+                                        {/* POINT 2 FIX: SINGLE SIGNATURE BLOCK LOCATED DIRECTLY ABOVE BOTTOM */}
+                                        <div style={{ paddingTop: '50px', paddingBottom: '10px' }}>
                                             <table style={{ width: '100%' }}>
                                                 <tbody>
                                                     <tr>
